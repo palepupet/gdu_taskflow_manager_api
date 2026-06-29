@@ -7,6 +7,9 @@
         "php": ">=8.2",
         "ext-ctype": "*",
         "ext-iconv": "*",
+        "doctrine/doctrine-bundle": "^2.18",
+        "doctrine/doctrine-migrations-bundle": "^3.7",
+        "doctrine/orm": "^3.6",
         "symfony/console": "7.2.*",
         "symfony/dotenv": "7.2.*",
         "symfony/flex": "^2",
@@ -15,6 +18,13 @@
         "symfony/yaml": "7.2.*"
     },
     "require-dev": {
+        "friendsofphp/php-cs-fixer": "3.95",
+        "phpmd/phpmd": "2.15",
+        "phpstan/phpstan": "^2.2",
+        "phpstan/phpstan-doctrine": "^2.0",
+        "phpstan/phpstan-phpunit": "^2.0",
+        "phpstan/phpstan-symfony": "^2.0",
+        "phpunit/phpunit": "^11.5"
     },
     "config": {
         "allow-plugins": {
@@ -55,7 +65,12 @@
         ],
         "post-update-cmd": [
             "@auto-scripts"
-        ]
+        ],
+        "phpstan": "phpstan analyse",
+        "phpmd": "vendor/bin/phpmd src,tests ansi phpmd.xml",
+        "php-cs-fixer": "php-cs-fixer fix",
+        "test": "phpunit --colors=always --no-coverage",
+        "check": "composer phpstan && composer phpmd && composer php-cs-fixer -- --dry-run && composer test"
     },
     "conflict": {
         "symfony/symfony": "*"
