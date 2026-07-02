@@ -64,3 +64,11 @@
 ###> IDE ###
 /.idea/
 ###< IDE ###
+
+###> lexik/jwt-authentication-bundle ###
+/config/jwt/*.pem
+###< lexik/jwt-authentication-bundle ###
+
+/.env.local
+/.env.local.php
+/.env.*.local
