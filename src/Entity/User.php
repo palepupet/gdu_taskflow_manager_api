@@ -4,12 +4,16 @@ declare(strict_types=1);
 
 namespace App\Entity;
 
+use App\Enum\UserRole;
 use App\Repository\UserRepository;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
+use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: UserRepository::class)]
-class User
+#[ORM\HasLifecycleCallbacks]
+class User implements UserInterface, PasswordAuthenticatedUserInterface
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -26,20 +30,24 @@ class User
     private ?string $password = null;
 
     #[Assert\NotBlank(message: 'Le prénom est obligatoire.')]
+    #[Assert\Length(max: 30)]
     #[ORM\Column(length: 30)]
     private ?string $firstName = null;
 
     #[Assert\NotBlank(message: 'Le nom est obligatoire.')]
+    #[Assert\Length(max: 30)]
     #[ORM\Column(length: 30)]
     private ?string $lastName = null;
 
     /**
      * @var array<string>
      */
-    #[Assert\All([new Assert\Choice(choices: ['ROLE_USER', 'ROLE_MANAGER'])])]
+    #[Assert\All([
+        new Assert\Choice(callback: [UserRole::class, 'values']),
+    ])]
     #[Assert\Count(min: 1)]
     #[ORM\Column]
-    private array $roles = ['ROLE_USER'];
+    private array $roles = [UserRole::User->value];
 
     #[ORM\Column]
     private bool $isActive = true;
@@ -106,7 +114,7 @@ class User
     public function getRoles(): array
     {
         $roles = $this->roles;
-        $roles[] = 'ROLE_USER';
+        $roles[] = UserRole::User->value;
 
         return array_values(array_unique($roles));
     }
@@ -149,5 +157,18 @@ class User
     public function onPrePersist(): void
     {
         $this->createdAt ??= new \DateTimeImmutable();
+    }
+
+    public function eraseCredentials(): void
+    {
+    }
+
+    public function getUserIdentifier(): string
+    {
+        if (null === $this->email || '' === $this->email) {
+            throw new \LogicException('L\'email de l\'utilisateur est invalide.');
+        }
+
+        return $this->email;
     }
 }

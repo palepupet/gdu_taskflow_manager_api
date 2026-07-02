@@ -34,6 +34,13 @@ cd gdu_taskflow_manager_api
 composer install
 ```
 
+### 2.1. Clés JWT (Lexik JWT)
+Après `composer install`, générer la paire de clés:
+
+```bash
+php bin/console lexik:jwt:generate-keypair
+```
+
 ### 3. Configurer l'environnement
 
 Copier les variables locales si besoin (fichier non versionné) :
