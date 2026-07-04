@@ -148,6 +148,15 @@ abstract class ApiTestCase extends WebTestCase
         ];
     }
 
+    protected function getUsers(?string $token = null): void
+    {
+        $server = null !== $token
+            ? ['HTTP_AUTHORIZATION' => 'Bearer '.$token]
+            : [];
+
+        $this->client->request('GET', '/users', server: $server);
+    }
+
     private function resetDatabase(): void
     {
         $metadata = $this->entityManager->getMetadataFactory()->getAllMetadata();

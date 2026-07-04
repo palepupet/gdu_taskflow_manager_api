@@ -139,6 +139,20 @@ class UserController extends AbstractController
         );
     }
 
+    #[IsGranted('ROLE_MANAGER')]
+    #[Route('/users', name:'users_list', methods: ['GET'])]
+    public function list(UserRepository $userRepository): JsonResponse
+    {
+        $users = $userRepository->findAll();
+
+        $data = array_map(
+            static fn (User $user): array => UserProfileResponse::fromUser($user)->toArray(),
+            $users,
+        );
+
+        return new JsonResponse($data);
+    }
+
     private function getCurrentUser(): User
     {
         $user = $this->getUser();
