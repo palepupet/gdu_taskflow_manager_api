@@ -8,6 +8,9 @@ use App\Enum\UserRole;
 use App\Tests\ApiTestCase;
 use Symfony\Component\HttpFoundation\Response;
 
+/**
+ * @SuppressWarnings("PHPMD.TooManyPublicMethods")
+ */
 class UserControllerTest extends ApiTestCase
 {
     public function testGetMeWithValidToken(): void
@@ -155,6 +158,39 @@ class UserControllerTest extends ApiTestCase
         self::assertNotNull($managerId);
 
         $this->getUserById($managerId, $token);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
+    }
+
+    public function testManagerCanDeactivateUser(): void
+    {
+        $user = $this->createUser();
+        $this->createManager();
+        $token = $this->loginAndGetToken('manager@taskflow.fr', 'TaskFlowManager123');
+
+        $userId = $user->getId();
+        self::assertNotNull($userId);
+
+        $this->updateUserById($userId, ['isActive' => false], $token);
+
+        self::assertResponseIsSuccessful();
+
+        $data = $this->getJsonResponse();
+        self::assertSame($userId, $data['id']);
+        self::assertFalse($data['isActive']);
+    }
+
+    public function testUserCannotUpdateAnotherUser(): void
+    {
+        $userToDeactivate = $this->createUser('other@taskflow.fr');
+        $this->createUser();
+        $token = $this->loginAndGetToken('user@taskflow.fr', 'TaskFlowUser123');
+
+        $userToDeactivateId = $userToDeactivate->getId();
+
+        self::assertNotNull($userToDeactivateId);
+
+        $this->updateUserById($userToDeactivateId, ['firstName' => 'Hack'], $token);
 
         self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
     }
