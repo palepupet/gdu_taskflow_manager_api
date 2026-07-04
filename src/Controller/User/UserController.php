@@ -153,6 +153,21 @@ class UserController extends AbstractController
         return new JsonResponse($data);
     }
 
+    #[IsGranted('ROLE_MANAGER')]
+    #[Route('/user/{id}', name: 'user_detail', requirements: ['id' => '\d+'], methods: ['GET'])]
+    public function detail(int $id, UserRepository $userRepository): JsonResponse
+    {
+        $user = $userRepository->find($id);
+        if (!$user instanceof User) {
+            return new JsonResponse([
+                'code' => 'NOT_FOUND',
+                'message' => 'Utilisateur introuvable.',
+            ], Response::HTTP_NOT_FOUND);
+        }
+
+        return new JsonResponse(UserProfileResponse::fromUser($user)->toArray());
+    }
+
     private function getCurrentUser(): User
     {
         $user = $this->getUser();

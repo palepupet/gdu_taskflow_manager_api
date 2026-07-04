@@ -157,6 +157,15 @@ abstract class ApiTestCase extends WebTestCase
         $this->client->request('GET', '/users', server: $server);
     }
 
+    protected function getUserById(int $id, ?string $token = null): void
+    {
+        $server = null !== $token
+            ? ['HTTP_AUTHORIZATION' => 'Bearer '.$token]
+            : [];
+
+        $this->client->request('GET', '/user/'.$id, server: $server);
+    }
+
     private function resetDatabase(): void
     {
         $metadata = $this->entityManager->getMetadataFactory()->getAllMetadata();
