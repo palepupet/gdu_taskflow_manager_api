@@ -90,4 +90,39 @@ class UserControllerTest extends ApiTestCase
 
         self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
     }
+
+    public function testManagerCanListAllUsers(): void
+    {
+        $this->createManager();
+        $this->createUser();
+        $token = $this->loginAndGetToken('manager@taskflow.fr', 'TaskFlowManager123');
+
+        $this->getUsers($token);
+
+        self::assertResponseIsSuccessful();
+
+        $data = $this->getJsonResponse();
+        self::assertCount(2, $data);
+
+        $emails = array_column($data, 'email');
+        self::assertContains('manager@taskflow.fr', $emails);
+        self::assertContains('user@taskflow.fr', $emails);
+
+        foreach ($data as $user) {
+            self::assertIsArray($user);
+            self::assertArrayHasKey('id', $user);
+            self::assertArrayHasKey('email', $user);
+            self::assertArrayNotHasKey('password', $user);
+        }
+    }
+
+    public function testUserCannotListAllUsers(): void
+    {
+        $this->createUser();
+        $token = $this->loginAndGetToken('user@taskflow.fr', 'TaskFlowUser123');
+
+        $this->getUsers($token);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
+    }
 }
