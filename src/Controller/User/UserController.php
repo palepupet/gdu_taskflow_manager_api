@@ -6,6 +6,7 @@ namespace App\Controller\User;
 
 use App\Dto\User\CreateUserRequest;
 use App\Dto\User\UpdateUserProfileRequest;
+use App\Dto\User\UpdateUserRequest;
 use App\Dto\User\UserProfileResponse;
 use App\Entity\User;
 use App\Repository\UserRepository;
@@ -69,6 +70,83 @@ class UserController extends AbstractController
                 'code' => 'VALIDATION_ERROR',
                 'message' => 'Donnée(s) invalide(s)'.$violations->get(0)->getMessage(),
             ], 400);
+        }
+
+        $entityManager->flush();
+
+        return new JsonResponse(UserProfileResponse::fromUser($user)->toArray());
+    }
+
+    /**
+     * @SuppressWarnings("PHPMD.ExcessiveMethodLength")
+     * @SuppressWarnings("PHPMD.NPathComplexity")
+     */
+    #[IsGranted('ROLE_MANAGER')]
+    #[Route('/user/{id}', name:'user_update', requirements: ['id' => '\d+'], methods: ['PATCH'])]
+    public function updateById(
+        int $id,
+        Request $request,
+        UserRepository $userRepository,
+        EntityManagerInterface $entityManager,
+        ValidatorInterface $validator,
+    ): JsonResponse {
+        $user = $userRepository->find($id);
+        if (!$user instanceof User) {
+            return new JsonResponse([
+                'code' => 'NOT_FOUND',
+                'message' => 'Utilisateur introuvable.',
+            ], Response::HTTP_NOT_FOUND);
+        }
+
+        $data = json_decode($request->getContent(), true);
+        if (!\is_array($data)) {
+            return new JsonResponse([
+                'code' => 'BAD_REQUEST',
+                'message' => 'Donnée(s) JSON invalide(s)',
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        /** @var array<string, mixed> $data */
+        $dto = UpdateUserRequest::fromArray($data);
+
+        $violations = $validator->validate($dto);
+        if ($violations->count() > 0) {
+            return new JsonResponse([
+                'code' => 'VALIDATION_ERROR',
+                'message' => 'Donnée(s) invalide(s): '.$violations->get(0)->getMessage(),
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        if (\is_string($dto->firstName)) {
+            $user->setFirstName($dto->firstName);
+        }
+        if (\is_string($dto->lastName)) {
+            $user->setLastName($dto->lastName);
+        }
+        if (\is_string($dto->email)) {
+            $existing = $userRepository->findOneBy(['email' => $dto->email]);
+            if ($existing instanceof User && $existing->getId() !== $user->getId()) {
+                return new JsonResponse([
+                    'code' => 'USER_ALREADY_EXISTS',
+                    'message' => 'Cet email est déjà utilisé par un autre utilisateur.',
+                ], Response::HTTP_CONFLICT);
+            }
+
+            $user->setEmail($dto->email);
+        }
+        if (\is_bool($dto->isActive)) {
+            $user->setIsActive($dto->isActive);
+        }
+        if (null !== $dto->roles) {
+            $user->setRoles($dto->resolveRoles());
+        }
+
+        $violations = $validator->validate($user);
+        if ($violations->count() > 0) {
+            return new JsonResponse([
+                'code' => 'VALIDATION_ERROR',
+                'message' => 'Donnée(s) invalide(s): '.$violations->get(0)->getMessage(),
+            ], Response::HTTP_BAD_REQUEST);
         }
 
         $entityManager->flush();
