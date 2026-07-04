@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Tests\User;
 
+use App\Enum\UserRole;
 use App\Tests\ApiTestCase;
+use Symfony\Component\HttpFoundation\Response;
 
 class UserControllerTest extends ApiTestCase
 {
@@ -38,5 +40,54 @@ class UserControllerTest extends ApiTestCase
         );
 
         self::assertResponseStatusCodeSame(401);
+    }
+
+    public function testManagerCanCreateUserWithDefaultUserRole(): void
+    {
+        $this->createManager();
+        $token = $this->loginAndGetToken('manager@taskflow.fr', 'TaskFlowManager123');
+
+        $this->postUser($this->getValidCreateUserPayload(), $token);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
+
+        $data = $this->getJsonResponse();
+        self::assertSame('john.doe@taskflow.fr', $data['email']);
+        self::assertSame('John', $data['firstName']);
+        self::assertSame('Doe', $data['lastName']);
+        self::assertSame([UserRole::User->value], $data['roles']);
+        self::assertTrue($data['isActive']);
+        self::assertArrayHasKey('createdAt', $data);
+        self::assertArrayNotHasKey('password', $data);
+    }
+
+    public function testManagerCanCreateUserWithManagerRole(): void
+    {
+        $this->createManager();
+        $token = $this->loginAndGetToken('manager@taskflow.fr', 'TaskFlowManager123');
+
+        $payload = $this->getValidCreateUserPayload();
+        $payload['email'] = 'bob.smith@taskflow.fr';
+        $payload['firstName'] = 'Bob';
+        $payload['lastName'] = 'Smith';
+        $payload['roles'] = [UserRole::Manager->value];
+
+        $this->postUser($payload, $token);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
+
+        $data = $this->getJsonResponse();
+
+        self::assertSame([UserRole::Manager->value, UserRole::User->value], $data['roles']);
+    }
+
+    public function testUserCannotCreateUser(): void
+    {
+        $this->createUser();
+        $token = $this->loginAndGetToken('user@taskflow.fr', 'TaskFlowUser123');
+
+        $this->postUser($this->getValidCreateUserPayload(), $token);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
     }
 }

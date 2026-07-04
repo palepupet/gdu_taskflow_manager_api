@@ -73,6 +73,81 @@ abstract class ApiTestCase extends WebTestCase
         return $user;
     }
 
+    protected function createUser(
+        string $email = 'user@taskflow.fr',
+        string $password = 'TaskFlowUser123',
+    ): User {
+        $passwordHasher = static::getContainer()->get(UserPasswordHasherInterface::class);
+
+        $user = new User();
+        $user
+            ->setFirstName('User')
+            ->setLastName('Taskflow')
+            ->setEmail($email)
+            ->setRoles([UserRole::User->value])
+            ->setPassword($passwordHasher->hashPassword($user, $password));
+
+        $this->entityManager->persist($user);
+        $this->entityManager->flush();
+
+        return $user;
+    }
+
+    /**
+     * @param array<string, mixed>  $payload
+     * @param array<string, string> $extraHeaders
+     */
+    protected function postUser(
+        array $payload,
+        ?string $token = null,
+        array $extraHeaders = [],
+    ): void {
+        $server = array_merge(
+            ['CONTENT_TYPE' => 'application/json'],
+            null !== $token ? ['HTTP_AUTHORIZATION' => 'Bearer '.$token] : [],
+            $extraHeaders,
+        );
+
+        $this->client->request(
+            'POST',
+            '/user',
+            server: $server,
+            content: json_encode($payload, JSON_THROW_ON_ERROR),
+        );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function getJsonResponse(): array
+    {
+        $content = $this->client->getResponse()->getContent();
+        self::assertIsString($content);
+
+        /** @var array<string, mixed> $data */
+        $data = json_decode($content, true, 512, JSON_THROW_ON_ERROR);
+
+        return $data;
+    }
+
+    /**
+     * @return array{
+     *     firstName: string,
+     *     lastName: string,
+     *     email: string,
+     *     password: string
+     * }
+     */
+    protected function getValidCreateUserPayload(): array
+    {
+        return [
+            'firstName' => 'John',
+            'lastName' => 'Doe',
+            'email' => 'john.doe@taskflow.fr',
+            'password' => 'Rosebud123',
+        ];
+    }
+
     private function resetDatabase(): void
     {
         $metadata = $this->entityManager->getMetadataFactory()->getAllMetadata();
