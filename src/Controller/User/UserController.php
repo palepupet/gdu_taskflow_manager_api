@@ -4,14 +4,19 @@ declare(strict_types=1);
 
 namespace App\Controller\User;
 
+use App\Dto\User\CreateUserRequest;
 use App\Dto\User\UpdateUserProfileRequest;
 use App\Dto\User\UserProfileResponse;
 use App\Entity\User;
+use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 class UserController extends AbstractController
@@ -47,7 +52,7 @@ class UserController extends AbstractController
         if ($violations->count() > 0) {
             return new JsonResponse([
                 'code' => 'VALIDATION_ERROR',
-                'message' => 'Donée(s) invalide(s): '.$violations->get(0)->getMessage(),
+                'message' => 'Donnée(s) invalide(s): '.$violations->get(0)->getMessage(),
             ], 400);
         }
 
@@ -69,6 +74,69 @@ class UserController extends AbstractController
         $entityManager->flush();
 
         return new JsonResponse(UserProfileResponse::fromUser($user)->toArray());
+    }
+
+    /**
+     * @SuppressWarnings("PHPMD.ExcessiveMethodLength")
+     */
+    #[IsGranted('ROLE_MANAGER')]
+    #[Route('/user', name:'user_create', methods: ['POST'])]
+    public function create(
+        Request $request,
+        EntityManagerInterface $entityManager,
+        UserRepository $userRepository,
+        UserPasswordHasherInterface $passwordHasher,
+        ValidatorInterface $validator,
+    ): JsonResponse {
+        $data = json_decode($request->getContent(), true);
+        if (!\is_array($data)) {
+            return new JsonResponse([
+                'code' => 'BAD_REQUEST',
+                'message' => 'Donnée(s) JSON invalide(s)',
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        /** @var array<string, mixed> $data */
+        $dto = CreateUserRequest::fromArray($data);
+
+        $violations = $validator->validate($dto);
+        if ($violations->count() > 0) {
+            return new JsonResponse([
+                'code' => 'VALIDATION_ERROR',
+                'message' => 'Donnée(s) invalide(s): '.$violations->get(0)->getMessage(),
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        if (null !== $userRepository->findOneBy(['email' => $dto->email])) {
+            return new JsonResponse([
+                'code' => 'USER_ALREADY_EXISTS',
+                'message' => 'Cet email est déjà utilisé par un autre utilisateur.',
+            ], Response::HTTP_CONFLICT);
+        }
+
+        $user = new User();
+        $user
+            ->setFirstName((string) $dto->firstName)
+            ->setLastName((string) $dto->lastName)
+            ->setEmail((string) $dto->email)
+            ->setRoles($dto->resolveRoles())
+            ->setPassword($passwordHasher->hashPassword($user, (string) $dto->password));
+
+        $violations = $validator->validate($user);
+        if ($violations->count() > 0) {
+            return new JsonResponse([
+                'code' => 'VALIDATION_ERROR',
+                'message' => 'Donnée(s) invalide(s): '.$violations->get(0)->getMessage(),
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        $entityManager->persist($user);
+        $entityManager->flush();
+
+        return new JsonResponse(
+            UserProfileResponse::fromUser($user)->toArray(),
+            Response::HTTP_CREATED,
+        );
     }
 
     private function getCurrentUser(): User
