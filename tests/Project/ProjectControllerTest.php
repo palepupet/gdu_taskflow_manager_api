@@ -10,6 +10,49 @@ use Symfony\Component\HttpFoundation\Response;
 
 class ProjectControllerTest extends ApiTestCase
 {
+    public function testManagerCanListAllProjects(): void
+    {
+        $token = $this->loginAsManager();
+
+        $this->postProject($this->getValidCreateProjectPayload(), $token);
+        $this->postProject(['title' => 'Projet interne 2', 'description' => 'Description du projet interne 2'], $token);
+
+        $this->getProjects($token);
+        self::assertResponseIsSuccessful();
+
+        $data = $this->getJsonResponse();
+        self::assertCount(2, $data);
+
+        foreach ($data as $project) {
+            self::assertIsArray($project);
+            self::assertArrayHasKey('id', $project);
+            self::assertArrayHasKey('title', $project);
+            self::assertArrayHasKey('owner', $project);
+            self::assertArrayHasKey('members', $project);
+        }
+    }
+
+    public function testUserCanOnlySeesTheirOwnProjects(): void
+    {
+        $this->createUser();
+        $userToken = $this->loginAsUser();
+        $managerToken = $this->loginAsManager();
+
+        $this->postProject($this->getValidCreateProjectPayload(), $userToken);
+        $this->postProject(['title' => 'Projet privé manager', 'description' => 'Invisible pour user'], $managerToken);
+
+        $this->getProjects($userToken);
+        self::assertResponseIsSuccessful();
+
+        $data = $this->getJsonResponse();
+        self::assertCount(1, $data);
+
+        foreach ($data as $project) {
+            self::assertIsArray($project);
+            self::assertSame('Création API de gestion de projets', $project['title']);
+        }
+    }
+
     public function testAuthenticatedUserCanCreateProject(): void
     {
         $this->createUser();

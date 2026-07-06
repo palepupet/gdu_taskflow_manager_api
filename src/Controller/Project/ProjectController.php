@@ -10,6 +10,7 @@ use App\Dto\Project\ProjectResponse;
 use App\Entity\Project;
 use App\Enum\ProjectStatus;
 use App\Http\RequestPayloadParser;
+use App\Repository\ProjectRepositoryInterface;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -24,6 +25,21 @@ class ProjectController extends AbstractController
     public function __construct(
         private readonly RequestPayloadParser $requestPayloadParser,
     ) {
+    }
+
+    #[Route('/projects', name:'project_list', methods: ['GET'])]
+    public function list(ProjectRepositoryInterface $projectRepository): JsonResponse
+    {
+        $user = $this->getCurrentUser();
+
+        $projects = $projectRepository->findAccessibleByUser($user);
+
+        $data = array_map(
+            fn (Project $project): array => ProjectResponse::fromProject($project)->toArray(),
+            $projects,
+        );
+
+        return new JsonResponse($data);
     }
 
     #[Route('/project', name:'project_create', methods: ['POST'])]

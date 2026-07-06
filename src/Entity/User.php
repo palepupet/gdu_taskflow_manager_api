@@ -221,4 +221,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
         return $this;
     }
+
+    public function isManager(): bool
+    {
+        return in_array(UserRole::Manager->value, $this->roles);
+    }
 }
