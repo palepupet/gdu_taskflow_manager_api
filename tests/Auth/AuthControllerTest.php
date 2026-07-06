@@ -10,10 +10,7 @@ class AuthControllerTest extends ApiTestCase
 {
     public function testManagerCanLoginAndReceiveJwtToken(): void
     {
-        $this->createManager();
-
-        $token = $this->loginAndGetToken('manager@taskflow.fr', 'TaskFlowManager123');
-
+        $token = $this->loginAsManager();
         self::assertNotEmpty($token);
     }
 
@@ -60,7 +57,6 @@ class AuthControllerTest extends ApiTestCase
         self::assertIsString($content);
 
         $data = json_decode($content, true, 512, JSON_THROW_ON_ERROR);
-
         self::assertIsArray($data);
         self::assertArrayNotHasKey('token', $data);
     }

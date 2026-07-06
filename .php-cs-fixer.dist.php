@@ -22,6 +22,7 @@ return (new PhpCsFixer\Config())
         ],
         'single_quote' => true,
         'single_blank_line_at_eof' => true,
+        'phpdoc_to_comment' => false,
     ])
     ->setRiskyAllowed(true)
     ->setFinder($finder)

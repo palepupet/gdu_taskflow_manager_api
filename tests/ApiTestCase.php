@@ -26,6 +26,30 @@ abstract class ApiTestCase extends WebTestCase
         $this->resetDatabase();
     }
 
+    /**
+     * @param array<string, mixed>|null $payload
+     * @param array<string, string>     $extraServer
+     */
+    protected function requestJson(
+        string $method,
+        string $uri,
+        ?array $payload = null,
+        ?string $token = null,
+        array $extraServer = [],
+    ): void {
+        $server = array_merge(
+            null !== $payload ? ['CONTENT_TYPE' => 'application/json'] : [],
+            null !== $token ? ['HTTP_AUTHORIZATION' => 'Bearer '.$token] : [],
+            $extraServer,
+        );
+
+        $content = null !== $payload
+            ? json_encode($payload, JSON_THROW_ON_ERROR)
+            : null;
+
+        $this->client->request($method, $uri, server: $server, content: $content);
+    }
+
     protected function createManager(string $email = 'manager@taskflow.fr', string $password = 'TaskFlowManager123'): User
     {
         $passwordHasher = static::getContainer()->get(UserPasswordHasherInterface::class);
@@ -63,6 +87,23 @@ abstract class ApiTestCase extends WebTestCase
         return $data['token'];
     }
 
+    protected function loginAsManager(): string
+    {
+        $this->createManager();
+
+        return $this->loginAndGetToken('manager@taskflow.fr', 'TaskFlowManager123');
+    }
+
+    protected function loginAsUser(string $email = 'user@taskflow.fr'): string
+    {
+        return $this->loginAndGetToken($email, 'TaskFlowUser123');
+    }
+
+    protected function getMe(?string $token = null): void
+    {
+        $this->requestJson('GET', '/me', null, $token);
+    }
+
     protected function createInactiveUser(string $email = 'manager@taskflow.fr'): User
     {
         $user = $this->createManager($email, 'InactiveManager123');
@@ -94,26 +135,11 @@ abstract class ApiTestCase extends WebTestCase
     }
 
     /**
-     * @param array<string, mixed>  $payload
-     * @param array<string, string> $extraHeaders
+     * @param array<string, mixed> $payload
      */
-    protected function postUser(
-        array $payload,
-        ?string $token = null,
-        array $extraHeaders = [],
-    ): void {
-        $server = array_merge(
-            ['CONTENT_TYPE' => 'application/json'],
-            null !== $token ? ['HTTP_AUTHORIZATION' => 'Bearer '.$token] : [],
-            $extraHeaders,
-        );
-
-        $this->client->request(
-            'POST',
-            '/user',
-            server: $server,
-            content: json_encode($payload, JSON_THROW_ON_ERROR),
-        );
+    protected function postUser(array $payload, ?string $token = null): void
+    {
+        $this->requestJson('POST', '/user', $payload, $token);
     }
 
     /**
@@ -150,20 +176,12 @@ abstract class ApiTestCase extends WebTestCase
 
     protected function getUsers(?string $token = null): void
     {
-        $server = null !== $token
-            ? ['HTTP_AUTHORIZATION' => 'Bearer '.$token]
-            : [];
-
-        $this->client->request('GET', '/users', server: $server);
+        $this->requestJson('GET', '/users', null, $token);
     }
 
     protected function getUserById(int $id, ?string $token = null): void
     {
-        $server = null !== $token
-            ? ['HTTP_AUTHORIZATION' => 'Bearer '.$token]
-            : [];
-
-        $this->client->request('GET', '/user/'.$id, server: $server);
+        $this->requestJson('GET', '/user/'.$id, null, $token);
     }
 
     /**
@@ -171,29 +189,12 @@ abstract class ApiTestCase extends WebTestCase
      */
     protected function updateUserById(int $id, array $payload, ?string $token = null): void
     {
-        $server = null !== $token
-            ? ['HTTP_AUTHORIZATION' => 'Bearer '.$token]
-            : [];
-
-        $this->client->request(
-            'PATCH',
-            '/user/'.$id,
-            server: $server,
-            content: json_encode($payload, JSON_THROW_ON_ERROR),
-        );
+        $this->requestJson('PATCH', '/user/'.$id, $payload, $token);
     }
 
     protected function deleteUserById(int $id, ?string $token = null): void
     {
-        $server = null !== $token
-            ? ['HTTP_AUTHORIZATION' => 'Bearer '.$token]
-            : [];
-
-        $this->client->request(
-            'DELETE',
-            '/user/'.$id,
-            server: $server
-        );
+        $this->requestJson('DELETE', '/user/'.$id, null, $token);
     }
 
     private function resetDatabase(): void

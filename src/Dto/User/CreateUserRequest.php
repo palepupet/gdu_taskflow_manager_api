@@ -16,18 +16,14 @@ class CreateUserRequest
         #[Assert\NotBlank(message: 'Le prénom est obligatoire.')]
         #[Assert\Length(max: 30)]
         public ?string $firstName = null,
-
         #[Assert\NotBlank(message: 'Le nom est obligatoire.')]
         #[Assert\Length(max: 30)]
         public ?string $lastName = null,
-
         #[Assert\NotBlank(message: 'L\'email est obligatoire.')]
         #[Assert\Email(message: 'L\'email n\'est pas valide.')]
         public ?string $email = null,
-
         #[Assert\NotBlank(message: 'Le mot de passe est obligatoire.')]
         public ?string $password = null,
-
         #[Assert\All([
             new Assert\Choice(callback: [UserRole::class, 'values']),
         ])]
@@ -52,17 +48,5 @@ class CreateUserRequest
             password: isset($data['password']) && \is_string($data['password']) ? $data['password'] : null,
             roles: $roles,
         );
-    }
-
-    /**
-     * @return array<string>
-     */
-    public function resolveRoles(): array
-    {
-        if (null !== $this->roles && \in_array(UserRole::Manager->value, $this->roles, true)) {
-            return [UserRole::Manager->value];
-        }
-
-        return [UserRole::User->value];
     }
 }
