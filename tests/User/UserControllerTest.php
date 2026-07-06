@@ -15,40 +15,24 @@ class UserControllerTest extends ApiTestCase
 {
     public function testGetMeWithValidToken(): void
     {
-        $this->createManager();
-        $token = $this->loginAndGetToken('manager@taskflow.fr', 'TaskFlowManager123');
+        $token = $this->loginAsManager();
 
-        $this->client->request(
-            'GET',
-            '/me',
-            server: ['HTTP_Authorization' => 'Bearer '.$token]
-        );
-
+        $this->getMe($token);
         self::assertResponseIsSuccessful();
 
-        $content = $this->client->getResponse()->getContent();
-        self::assertIsString($content);
-
-        /** @var array{email: string} $data */
-        $data = json_decode($content, true, 512, JSON_THROW_ON_ERROR);
-
+        $data = $this->getJsonResponse();
         self::assertSame('manager@taskflow.fr', $data['email']);
     }
 
     public function testGetMeWithInvalidTokenShouldReturn401(): void
     {
-        $this->client->request(
-            'GET',
-            '/me',
-        );
-
+        $this->getMe();
         self::assertResponseStatusCodeSame(401);
     }
 
     public function testManagerCanCreateUserWithDefaultUserRole(): void
     {
-        $this->createManager();
-        $token = $this->loginAndGetToken('manager@taskflow.fr', 'TaskFlowManager123');
+        $token = $this->loginAsManager();
 
         $this->postUser($this->getValidCreateUserPayload(), $token);
 
@@ -66,8 +50,7 @@ class UserControllerTest extends ApiTestCase
 
     public function testManagerCanCreateUserWithManagerRole(): void
     {
-        $this->createManager();
-        $token = $this->loginAndGetToken('manager@taskflow.fr', 'TaskFlowManager123');
+        $token = $this->loginAsManager();
 
         $payload = $this->getValidCreateUserPayload();
         $payload['email'] = 'bob.smith@taskflow.fr';
@@ -87,7 +70,7 @@ class UserControllerTest extends ApiTestCase
     public function testUserCannotCreateUser(): void
     {
         $this->createUser();
-        $token = $this->loginAndGetToken('user@taskflow.fr', 'TaskFlowUser123');
+        $token = $this->loginAsUser();
 
         $this->postUser($this->getValidCreateUserPayload(), $token);
 
@@ -96,12 +79,10 @@ class UserControllerTest extends ApiTestCase
 
     public function testManagerCanListAllUsers(): void
     {
-        $this->createManager();
         $this->createUser();
-        $token = $this->loginAndGetToken('manager@taskflow.fr', 'TaskFlowManager123');
+        $token = $this->loginAsManager();
 
         $this->getUsers($token);
-
         self::assertResponseIsSuccessful();
 
         $data = $this->getJsonResponse();
@@ -122,24 +103,21 @@ class UserControllerTest extends ApiTestCase
     public function testUserCannotListAllUsers(): void
     {
         $this->createUser();
-        $token = $this->loginAndGetToken('user@taskflow.fr', 'TaskFlowUser123');
+        $token = $this->loginAsUser();
 
         $this->getUsers($token);
-
         self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
     }
 
     public function testManagerCanGetUserById(): void
     {
         $user = $this->createUser();
-        $this->createManager();
-        $token = $this->loginAndGetToken('manager@taskflow.fr', 'TaskFlowManager123');
+        $token = $this->loginAsManager();
 
         $userId = $user->getId();
         self::assertNotNull($userId);
 
         $this->getUserById($userId, $token);
-
         self::assertResponseIsSuccessful();
 
         $data = $this->getJsonResponse();
@@ -152,27 +130,24 @@ class UserControllerTest extends ApiTestCase
     {
         $manager = $this->createManager();
         $this->createUser();
-        $token = $this->loginAndGetToken('user@taskflow.fr', 'TaskFlowUser123');
+        $token = $this->loginAsUser();
 
         $managerId = $manager->getId();
         self::assertNotNull($managerId);
 
         $this->getUserById($managerId, $token);
-
         self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
     }
 
     public function testManagerCanDeactivateUser(): void
     {
         $user = $this->createUser();
-        $this->createManager();
-        $token = $this->loginAndGetToken('manager@taskflow.fr', 'TaskFlowManager123');
+        $token = $this->loginAsManager();
 
         $userId = $user->getId();
         self::assertNotNull($userId);
 
         $this->updateUserById($userId, ['isActive' => false], $token);
-
         self::assertResponseIsSuccessful();
 
         $data = $this->getJsonResponse();
@@ -184,22 +159,19 @@ class UserControllerTest extends ApiTestCase
     {
         $userToDeactivate = $this->createUser('other@taskflow.fr');
         $this->createUser();
-        $token = $this->loginAndGetToken('user@taskflow.fr', 'TaskFlowUser123');
+        $token = $this->loginAsUser();
 
         $userToDeactivateId = $userToDeactivate->getId();
-
         self::assertNotNull($userToDeactivateId);
 
         $this->updateUserById($userToDeactivateId, ['firstName' => 'Hack'], $token);
-
         self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
     }
 
     public function testManagerCanDeleteUser(): void
     {
         $user = $this->createUser();
-        $this->createManager();
-        $token = $this->loginAndGetToken('manager@taskflow.fr', 'TaskFlowManager123');
+        $token = $this->loginAsManager();
 
         $userId = $user->getId();
         self::assertNotNull($userId);
@@ -213,11 +185,11 @@ class UserControllerTest extends ApiTestCase
 
     public function testUserCannotDeleteUser(): void
     {
-        $target = $this->createUser('other@taskflow.fr');
+        $userToDeactivate = $this->createUser('other@taskflow.fr');
         $this->createUser();
-        $token = $this->loginAndGetToken('user@taskflow.fr', 'TaskFlowUser123');
+        $token = $this->loginAsUser();
 
-        $targetId = $target->getId();
+        $targetId = $userToDeactivate->getId();
         self::assertNotNull($targetId);
 
         $this->deleteUserById($targetId, $token);

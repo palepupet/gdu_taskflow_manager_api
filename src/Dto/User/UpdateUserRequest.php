@@ -49,16 +49,4 @@ class UpdateUserRequest
             isActive: isset($data['isActive']) && \is_bool($data['isActive']) ? $data['isActive'] : null,
         );
     }
-
-    /**
-     * @return array<string>
-     */
-    public function resolveRoles(): array
-    {
-        if (null !== $this->roles && \in_array(UserRole::Manager->value, $this->roles, true)) {
-            return [UserRole::Manager->value];
-        }
-
-        return [UserRole::User->value];
-    }
 }

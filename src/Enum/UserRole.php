@@ -16,4 +16,18 @@ enum UserRole: string
     {
         return array_map(static fn (self $role) => $role->value, self::cases());
     }
+
+    /**
+     * @param array<string>|null $roles
+     *
+     * @return array<string>
+     */
+    public static function resolve(?array $roles): array
+    {
+        if (null !== $roles && \in_array(UserRole::Manager->value, $roles, true)) {
+            return [UserRole::Manager->value];
+        }
+
+        return [UserRole::User->value];
+    }
 }

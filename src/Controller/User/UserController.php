@@ -9,6 +9,9 @@ use App\Dto\User\UpdateUserProfileRequest;
 use App\Dto\User\UpdateUserRequest;
 use App\Dto\User\UserProfileResponse;
 use App\Entity\User;
+use App\Enum\UserRole;
+use App\Http\ApiErrorResponse;
+use App\Http\RequestPayloadParser;
 use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -18,10 +21,17 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
-use Symfony\Component\Validator\Validator\ValidatorInterface;
 
+/**
+ * @SuppressWarnings("PHPMD.CouplingBetweenObjects")
+ */
 class UserController extends AbstractController
 {
+    public function __construct(
+        private readonly RequestPayloadParser $requestPayloadParser,
+    ) {
+    }
+
     #[Route('/me', name:'me_show', methods: ['GET'])]
     public function show(): JsonResponse
     {
@@ -34,29 +44,20 @@ class UserController extends AbstractController
     public function update(
         Request $request,
         EntityManagerInterface $entityManager,
-        ValidatorInterface $validator,
     ): JsonResponse {
         $user = $this->getCurrentUser();
 
-        $data = json_decode($request->getContent(), true);
-        if (!\is_array($data)) {
-            return new JsonResponse([
-                'code' => 'BAD_REQUEST',
-                'message' => 'Donnée(s) JSON invalide(s)',
-            ], 400);
+        $data = $this->requestPayloadParser->decode($request);
+        if ($data instanceof JsonResponse) {
+            return $data;
         }
 
-        /** @var array<string, mixed> $data */
-        $dto = UpdateUserProfileRequest::fromArray($data);
-
-        $violations = $validator->validate($dto);
-        if ($violations->count() > 0) {
-            return new JsonResponse([
-                'code' => 'VALIDATION_ERROR',
-                'message' => 'Donnée(s) invalide(s): '.$violations->get(0)->getMessage(),
-            ], 400);
+        $dto = $this->requestPayloadParser->validate(UpdateUserProfileRequest::fromArray($data));
+        if ($dto instanceof JsonResponse) {
+            return $dto;
         }
 
+        /** @var UpdateUserProfileRequest $dto */
         if (\is_string($dto->firstName)) {
             $user->setFirstName($dto->firstName);
         }
@@ -64,12 +65,9 @@ class UserController extends AbstractController
             $user->setLastName($dto->lastName);
         }
 
-        $violations = $validator->validate($user);
-        if ($violations->count() > 0) {
-            return new JsonResponse([
-                'code' => 'VALIDATION_ERROR',
-                'message' => 'Donnée(s) invalide(s)'.$violations->get(0)->getMessage(),
-            ], 400);
+        $error = $this->requestPayloadParser->validateEntity($user);
+        if ($error instanceof JsonResponse) {
+            return $error;
         }
 
         $entityManager->flush();
@@ -88,35 +86,23 @@ class UserController extends AbstractController
         Request $request,
         UserRepository $userRepository,
         EntityManagerInterface $entityManager,
-        ValidatorInterface $validator,
     ): JsonResponse {
-        $user = $userRepository->find($id);
-        if (!$user instanceof User) {
-            return new JsonResponse([
-                'code' => 'NOT_FOUND',
-                'message' => 'Utilisateur introuvable.',
-            ], Response::HTTP_NOT_FOUND);
+        $user = $this->findUserOrError($id, $userRepository);
+        if ($user instanceof JsonResponse) {
+            return $user;
         }
 
-        $data = json_decode($request->getContent(), true);
-        if (!\is_array($data)) {
-            return new JsonResponse([
-                'code' => 'BAD_REQUEST',
-                'message' => 'Donnée(s) JSON invalide(s)',
-            ], Response::HTTP_BAD_REQUEST);
+        $data = $this->requestPayloadParser->decode($request);
+        if ($data instanceof JsonResponse) {
+            return $data;
         }
 
-        /** @var array<string, mixed> $data */
-        $dto = UpdateUserRequest::fromArray($data);
-
-        $violations = $validator->validate($dto);
-        if ($violations->count() > 0) {
-            return new JsonResponse([
-                'code' => 'VALIDATION_ERROR',
-                'message' => 'Donnée(s) invalide(s): '.$violations->get(0)->getMessage(),
-            ], Response::HTTP_BAD_REQUEST);
+        $dto = $this->requestPayloadParser->validate(UpdateUserRequest::fromArray($data));
+        if ($dto instanceof JsonResponse) {
+            return $dto;
         }
 
+        /** @var UpdateUserRequest $dto */
         if (\is_string($dto->firstName)) {
             $user->setFirstName($dto->firstName);
         }
@@ -124,12 +110,9 @@ class UserController extends AbstractController
             $user->setLastName($dto->lastName);
         }
         if (\is_string($dto->email)) {
-            $existing = $userRepository->findOneBy(['email' => $dto->email]);
-            if ($existing instanceof User && $existing->getId() !== $user->getId()) {
-                return new JsonResponse([
-                    'code' => 'USER_ALREADY_EXISTS',
-                    'message' => 'Cet email est déjà utilisé par un autre utilisateur.',
-                ], Response::HTTP_CONFLICT);
+            $conflict = $this->assertEmailAvailable($dto->email, $userRepository, $user->getId());
+            if ($conflict instanceof JsonResponse) {
+                return $conflict;
             }
 
             $user->setEmail($dto->email);
@@ -138,15 +121,12 @@ class UserController extends AbstractController
             $user->setIsActive($dto->isActive);
         }
         if (null !== $dto->roles) {
-            $user->setRoles($dto->resolveRoles());
+            $user->setRoles(UserRole::resolve($dto->roles));
         }
 
-        $violations = $validator->validate($user);
-        if ($violations->count() > 0) {
-            return new JsonResponse([
-                'code' => 'VALIDATION_ERROR',
-                'message' => 'Donnée(s) invalide(s): '.$violations->get(0)->getMessage(),
-            ], Response::HTTP_BAD_REQUEST);
+        $error = $this->requestPayloadParser->validateEntity($user);
+        if ($error instanceof JsonResponse) {
+            return $error;
         }
 
         $entityManager->flush();
@@ -154,9 +134,6 @@ class UserController extends AbstractController
         return new JsonResponse(UserProfileResponse::fromUser($user)->toArray());
     }
 
-    /**
-     * @SuppressWarnings("PHPMD.ExcessiveMethodLength")
-     */
     #[IsGranted('ROLE_MANAGER')]
     #[Route('/user', name:'user_create', methods: ['POST'])]
     public function create(
@@ -164,32 +141,21 @@ class UserController extends AbstractController
         EntityManagerInterface $entityManager,
         UserRepository $userRepository,
         UserPasswordHasherInterface $passwordHasher,
-        ValidatorInterface $validator,
     ): JsonResponse {
-        $data = json_decode($request->getContent(), true);
-        if (!\is_array($data)) {
-            return new JsonResponse([
-                'code' => 'BAD_REQUEST',
-                'message' => 'Donnée(s) JSON invalide(s)',
-            ], Response::HTTP_BAD_REQUEST);
+        $data = $this->requestPayloadParser->decode($request);
+        if ($data instanceof JsonResponse) {
+            return $data;
         }
 
-        /** @var array<string, mixed> $data */
-        $dto = CreateUserRequest::fromArray($data);
-
-        $violations = $validator->validate($dto);
-        if ($violations->count() > 0) {
-            return new JsonResponse([
-                'code' => 'VALIDATION_ERROR',
-                'message' => 'Donnée(s) invalide(s): '.$violations->get(0)->getMessage(),
-            ], Response::HTTP_BAD_REQUEST);
+        $dto = $this->requestPayloadParser->validate(CreateUserRequest::fromArray($data));
+        if ($dto instanceof JsonResponse) {
+            return $dto;
         }
 
-        if (null !== $userRepository->findOneBy(['email' => $dto->email])) {
-            return new JsonResponse([
-                'code' => 'USER_ALREADY_EXISTS',
-                'message' => 'Cet email est déjà utilisé par un autre utilisateur.',
-            ], Response::HTTP_CONFLICT);
+        /** @var CreateUserRequest $dto */
+        $conflict = $this->assertEmailAvailable((string) $dto->email, $userRepository);
+        if ($conflict instanceof JsonResponse) {
+            return $conflict;
         }
 
         $user = new User();
@@ -197,15 +163,12 @@ class UserController extends AbstractController
             ->setFirstName((string) $dto->firstName)
             ->setLastName((string) $dto->lastName)
             ->setEmail((string) $dto->email)
-            ->setRoles($dto->resolveRoles())
+            ->setRoles(UserRole::resolve($dto->roles))
             ->setPassword($passwordHasher->hashPassword($user, (string) $dto->password));
 
-        $violations = $validator->validate($user);
-        if ($violations->count() > 0) {
-            return new JsonResponse([
-                'code' => 'VALIDATION_ERROR',
-                'message' => 'Donnée(s) invalide(s): '.$violations->get(0)->getMessage(),
-            ], Response::HTTP_BAD_REQUEST);
+        $error = $this->requestPayloadParser->validateEntity($user);
+        if ($error instanceof JsonResponse) {
+            return $error;
         }
 
         $entityManager->persist($user);
@@ -235,12 +198,9 @@ class UserController extends AbstractController
     #[Route('/user/{id}', name: 'user_detail', requirements: ['id' => '\d+'], methods: ['GET'])]
     public function detail(int $id, UserRepository $userRepository): JsonResponse
     {
-        $user = $userRepository->find($id);
-        if (!$user instanceof User) {
-            return new JsonResponse([
-                'code' => 'NOT_FOUND',
-                'message' => 'Utilisateur introuvable.',
-            ], Response::HTTP_NOT_FOUND);
+        $user = $this->findUserOrError($id, $userRepository);
+        if ($user instanceof JsonResponse) {
+            return $user;
         }
 
         return new JsonResponse(UserProfileResponse::fromUser($user)->toArray());
@@ -253,12 +213,9 @@ class UserController extends AbstractController
         UserRepository $userRepository,
         EntityManagerInterface $entityManager,
     ): JsonResponse {
-        $user = $userRepository->find($id);
-        if (!$user instanceof User) {
-            return new JsonResponse([
-                'code' => 'NOT_FOUND',
-                'message' => 'Utilisateur introuvable.',
-            ], Response::HTTP_NOT_FOUND);
+        $user = $this->findUserOrError($id, $userRepository);
+        if ($user instanceof JsonResponse) {
+            return $user;
         }
 
         $entityManager->remove($user);
@@ -275,5 +232,35 @@ class UserController extends AbstractController
         }
 
         return $user;
+    }
+
+    private function findUserOrError(int $id, UserRepository $userRepository): User|JsonResponse
+    {
+        $user = $userRepository->find($id);
+        if (!$user instanceof User) {
+            return ApiErrorResponse::notFound('Utilisateur introuvable.');
+        }
+
+        return $user;
+    }
+
+    private function assertEmailAvailable(
+        string $email,
+        UserRepository $userRepository,
+        ?int $excludeUserId = null,
+    ): ?JsonResponse {
+        $existing = $userRepository->findOneBy(['email' => $email]);
+        if (!$existing instanceof User) {
+            return null;
+        }
+
+        if (null !== $excludeUserId && $existing->getId() === $excludeUserId) {
+            return null;
+        }
+
+        return ApiErrorResponse::conflict(
+            'USER_ALREADY_EXISTS',
+            'Cet email est déjà utilisé par un autre utilisateur.',
+        );
     }
 }
