@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controller\User;
 
+use App\Controller\Trait\CurrentUserTrait;
 use App\Dto\User\CreateUserRequest;
 use App\Dto\User\UpdateUserProfileRequest;
 use App\Dto\User\UpdateUserRequest;
@@ -27,6 +28,8 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
  */
 class UserController extends AbstractController
 {
+    use CurrentUserTrait;
+
     public function __construct(
         private readonly RequestPayloadParser $requestPayloadParser,
     ) {
@@ -222,16 +225,6 @@ class UserController extends AbstractController
         $entityManager->flush();
 
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);
-    }
-
-    private function getCurrentUser(): User
-    {
-        $user = $this->getUser();
-        if (!$user instanceof User) {
-            throw $this->createAccessDeniedException();
-        }
-
-        return $user;
     }
 
     private function findUserOrError(int $id, UserRepository $userRepository): User|JsonResponse
