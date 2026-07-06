@@ -194,4 +194,33 @@ class UserControllerTest extends ApiTestCase
 
         self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
     }
+
+    public function testManagerCanDeleteUser(): void
+    {
+        $user = $this->createUser();
+        $this->createManager();
+        $token = $this->loginAndGetToken('manager@taskflow.fr', 'TaskFlowManager123');
+
+        $userId = $user->getId();
+        self::assertNotNull($userId);
+
+        $this->deleteUserById($userId, $token);
+        self::assertResponseStatusCodeSame(Response::HTTP_NO_CONTENT);
+
+        $this->getUserById($userId, $token);
+        self::assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND);
+    }
+
+    public function testUserCannotDeleteUser(): void
+    {
+        $target = $this->createUser('other@taskflow.fr');
+        $this->createUser();
+        $token = $this->loginAndGetToken('user@taskflow.fr', 'TaskFlowUser123');
+
+        $targetId = $target->getId();
+        self::assertNotNull($targetId);
+
+        $this->deleteUserById($targetId, $token);
+        self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
+    }
 }
