@@ -183,6 +183,19 @@ abstract class ApiTestCase extends WebTestCase
         );
     }
 
+    protected function deleteUserById(int $id, ?string $token = null): void
+    {
+        $server = null !== $token
+            ? ['HTTP_AUTHORIZATION' => 'Bearer '.$token]
+            : [];
+
+        $this->client->request(
+            'DELETE',
+            '/user/'.$id,
+            server: $server
+        );
+    }
+
     private function resetDatabase(): void
     {
         $metadata = $this->entityManager->getMetadataFactory()->getAllMetadata();

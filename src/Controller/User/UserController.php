@@ -246,6 +246,27 @@ class UserController extends AbstractController
         return new JsonResponse(UserProfileResponse::fromUser($user)->toArray());
     }
 
+    #[IsGranted('ROLE_MANAGER')]
+    #[Route('/user/{id}', name: 'user_delete', requirements: ['id' => '\d+'], methods: ['DELETE'])]
+    public function delete(
+        int $id,
+        UserRepository $userRepository,
+        EntityManagerInterface $entityManager,
+    ): JsonResponse {
+        $user = $userRepository->find($id);
+        if (!$user instanceof User) {
+            return new JsonResponse([
+                'code' => 'NOT_FOUND',
+                'message' => 'Utilisateur introuvable.',
+            ], Response::HTTP_NOT_FOUND);
+        }
+
+        $entityManager->remove($user);
+        $entityManager->flush();
+
+        return new JsonResponse(null, Response::HTTP_NO_CONTENT);
+    }
+
     private function getCurrentUser(): User
     {
         $user = $this->getUser();
