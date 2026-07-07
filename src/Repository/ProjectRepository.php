@@ -36,4 +36,12 @@ class ProjectRepository extends ServiceEntityRepository implements ProjectReposi
 
         return $projects;
     }
+
+    public function findById(int $id): ?Project
+    {
+        /** @var Project|null $project */
+        $project = parent::find($id);
+
+        return $project;
+    }
 }

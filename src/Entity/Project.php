@@ -217,4 +217,18 @@ class Project
 
         return $this;
     }
+
+    public function isAccessibleBy(User $user): bool
+    {
+        if ($user->isManager()) {
+            return true;
+        }
+
+        $owner = $this->owner;
+        if ($owner instanceof User && $owner->getId() === $user->getId()) {
+            return true;
+        }
+
+        return $this->members->contains($user);
+    }
 }
