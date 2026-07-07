@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace App\Tests\Project;
 
+use App\Entity\Project;
 use App\Enum\ProjectStatus;
 use App\Tests\ApiTestCase;
 use Symfony\Component\HttpFoundation\Response;
 
+/**
+ * @SuppressWarnings("PHPMD.TooManyPublicMethods")
+ */
 class ProjectControllerTest extends ApiTestCase
 {
     public function testManagerCanListAllProjects(): void
@@ -118,5 +122,109 @@ class ProjectControllerTest extends ApiTestCase
 
         $this->postProject($payload, $token);
         self::assertResponseStatusCodeSame(Response::HTTP_BAD_REQUEST);
+    }
+
+    public function testManagerCanGetAnyProjectById(): void
+    {
+        $this->createUser();
+        $userToken = $this->loginAsUser();
+        $managerToken = $this->loginAsManager();
+
+        $this->postProject($this->getValidCreateProjectPayload(), $userToken);
+        $created = $this->getJsonResponse();
+        $projectId = $this->extractIntId($created);
+
+        $this->getProjectById($projectId, $managerToken);
+        self::assertResponseIsSuccessful();
+    }
+
+    public function testOwnerCanGetItsProjectById(): void
+    {
+        $this->createUser();
+        $token = $this->loginAsUser();
+
+        $this->postProject($this->getValidCreateProjectPayload(), $token);
+        self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
+
+        $created = $this->getJsonResponse();
+        $projectId = $this->extractIntId($created);
+
+        $this->getProjectById($projectId, $token);
+        self::assertResponseIsSuccessful();
+
+        $data = $this->getJsonResponse();
+        self::assertSame($projectId, $data['id']);
+        self::assertSame('Création API de gestion de projets', $data['title']);
+        self::assertIsArray($data['owner']);
+        self::assertSame('user@taskflow.fr', $data['owner']['email']);
+    }
+
+    public function testMemberCanGetItsProjectById(): void
+    {
+        $this->createUser('owner@taskflow.fr');
+        $this->createUser('member@taskflow.fr');
+        $ownerToken = $this->loginAndGetToken('owner@taskflow.fr', 'TaskFlowUser123');
+
+        $this->postProject($this->getValidCreateProjectPayload(), $ownerToken);
+        $created = $this->getJsonResponse();
+        $projectId = $this->extractIntId($created);
+
+        $project = $this->entityManager->getRepository(Project::class)->find($projectId);
+        self::assertNotNull($project);
+
+        $this->addMemberToProjectByEmail($project, 'member@taskflow.fr');
+
+        $memberToken = $this->loginAndGetToken('member@taskflow.fr', 'TaskFlowUser123');
+
+        $this->getProjectById($projectId, $memberToken);
+        self::assertResponseIsSuccessful();
+    }
+
+    public function testMemberCanSeeProjectTheyBelongTo(): void
+    {
+        $this->createUser('owner@taskflow.fr');
+        $this->createUser('member@taskflow.fr');
+        $ownerToken = $this->loginAndGetToken('owner@taskflow.fr', 'TaskFlowUser123');
+
+        $this->postProject($this->getValidCreateProjectPayload(), $ownerToken);
+        self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
+
+        $created = $this->getJsonResponse();
+        $projectId = $this->extractIntId($created);
+
+        $project = $this->entityManager->getRepository(Project::class)->find($projectId);
+        self::assertNotNull($project);
+
+        $this->addMemberToProjectByEmail($project, 'member@taskflow.fr');
+
+        $memberToken = $this->loginAndGetToken('member@taskflow.fr', 'TaskFlowUser123');
+
+        $this->getProjects($memberToken);
+        self::assertResponseIsSuccessful();
+
+        $data = $this->getJsonResponse();
+        self::assertCount(1, $data);
+
+        foreach ($data as $projectData) {
+            self::assertIsArray($projectData);
+            self::assertSame('Création API de gestion de projets', $projectData['title']);
+            self::assertIsArray($projectData['owner']);
+            self::assertSame('owner@taskflow.fr', $projectData['owner']['email']);
+        }
+    }
+
+    public function testUserCannotGetProjectTheyDoNotBelongTo(): void
+    {
+        $this->createUser();
+        $this->createUser('other@taskflow.fr');
+        $ownerToken = $this->loginAsUser();
+
+        $this->postProject($this->getValidCreateProjectPayload(), $ownerToken);
+        $created = $this->getJsonResponse();
+        $projectId = $this->extractIntId($created);
+        $otherToken = $this->loginAndGetToken('other@taskflow.fr', 'TaskFlowUser123');
+
+        $this->getProjectById($projectId, $otherToken);
+        self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
     }
 }

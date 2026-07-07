@@ -13,4 +13,6 @@ interface ProjectRepositoryInterface
      * @return list<Project>
      */
     public function findAccessibleByUser(User $user): array;
+
+    public function findById(int $id): ?Project;
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests;
 
+use App\Entity\Project;
 use App\Entity\User;
 use App\Enum\UserRole;
 use Doctrine\ORM\EntityManagerInterface;
@@ -219,6 +220,31 @@ abstract class ApiTestCase extends WebTestCase
     protected function getProjects(?string $token = null): void
     {
         $this->requestJson('GET', '/projects', null, $token);
+    }
+
+    protected function getProjectById(int $id, ?string $token = null): void
+    {
+        $this->requestJson('GET', '/project/'.$id, null, $token);
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     */
+    protected function extractIntId(array $data, string $key = 'id'): int
+    {
+        self::assertArrayHasKey($key, $data);
+        self::assertIsInt($data[$key]);
+
+        return $data[$key];
+    }
+
+    protected function addMemberToProjectByEmail(Project $project, string $email): void
+    {
+        $member = $this->entityManager->getRepository(User::class)->findOneBy(['email' => $email]);
+        self::assertNotNull($member);
+
+        $project->addMember($member);
+        $this->entityManager->flush();
     }
 
     private function resetDatabase(): void

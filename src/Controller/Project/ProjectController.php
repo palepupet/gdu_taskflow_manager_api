@@ -9,6 +9,7 @@ use App\Dto\Project\CreateProjectRequest;
 use App\Dto\Project\ProjectResponse;
 use App\Entity\Project;
 use App\Enum\ProjectStatus;
+use App\Http\ApiErrorResponse;
 use App\Http\RequestPayloadParser;
 use App\Repository\ProjectRepositoryInterface;
 use Doctrine\ORM\EntityManagerInterface;
@@ -40,6 +41,25 @@ class ProjectController extends AbstractController
         );
 
         return new JsonResponse($data);
+    }
+
+    #[Route('/project/{id}', name:'project_detail', requirements: ['id' => '\d+'], methods: ['GET'])]
+    public function detail(
+        int $id,
+        ProjectRepositoryInterface $projectRepository,
+    ): JsonResponse {
+        $user = $this->getCurrentUser();
+
+        $project = $projectRepository->findById($id);
+        if (!$project instanceof Project) {
+            return ApiErrorResponse::notFound('Projet introuvable.');
+        }
+
+        if (!$project->isAccessibleBy($user)) {
+            throw $this->createAccessDeniedException();
+        }
+
+        return new JsonResponse(ProjectResponse::fromProject($project)->toArray());
     }
 
     #[Route('/project', name:'project_create', methods: ['POST'])]
