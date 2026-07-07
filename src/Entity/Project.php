@@ -231,4 +231,24 @@ class Project
 
         return $this->members->contains($user);
     }
+
+    public function isEditable(): bool
+    {
+        return ProjectStatus::IN_PROGRESS === $this->status && !$this->isArchived;
+    }
+
+    public function canBeModifiedBy(User $user): bool
+    {
+        if (!$this->isEditable()) {
+            return false;
+        }
+
+        if ($user->isManager()) {
+            return true;
+        }
+
+        $owner = $this->owner;
+
+        return $owner instanceof User && $owner->getId() === $user->getId();
+    }
 }

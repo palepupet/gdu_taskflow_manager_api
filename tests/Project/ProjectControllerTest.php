@@ -227,4 +227,66 @@ class ProjectControllerTest extends ApiTestCase
         $this->getProjectById($projectId, $otherToken);
         self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
     }
+
+    public function testOwnerCanUpdateItsProject(): void
+    {
+        $this->createUser();
+        $token = $this->loginAsUser();
+
+        $this->postProject($this->getValidCreateProjectPayload(), $token);
+        $projectId = $this->extractIntId($this->getJsonResponse());
+
+        $this->updateProjectById($projectId, ['title' => 'Titre modifié'], $token);
+        self::assertResponseIsSuccessful();
+
+        $data = $this->getJsonResponse();
+        self::assertSame('Titre modifié', $data['title']);
+        self::assertNotNull($data['updatedAt']);
+    }
+
+    public function testManagerCanUpdateAnyProject(): void
+    {
+        $this->createUser();
+        $userToken = $this->loginAsUser();
+        $managerToken = $this->loginAsManager();
+
+        $this->postProject($this->getValidCreateProjectPayload(), $userToken);
+        $projectId = $this->extractIntId($this->getJsonResponse());
+
+        $this->updateProjectById($projectId, ['description' => 'MAJ manager'], $managerToken);
+        self::assertResponseIsSuccessful();
+    }
+
+    public function testMemberCannotUpdateProject(): void
+    {
+        $this->createUser('owner@taskflow.fr');
+        $this->createUser('member@taskflow.fr');
+        $ownerToken = $this->loginAndGetToken('owner@taskflow.fr', 'TaskFlowUser123');
+
+        $this->postProject($this->getValidCreateProjectPayload(), $ownerToken);
+        $projectId = $this->extractIntId($this->getJsonResponse());
+
+        $project = $this->entityManager->getRepository(Project::class)->find($projectId);
+        self::assertNotNull($project);
+
+        $this->addMemberToProjectByEmail($project, 'member@taskflow.fr');
+        $memberToken = $this->loginAndGetToken('member@taskflow.fr', 'TaskFlowUser123');
+
+        $this->updateProjectById($projectId, ['title' => 'Hack'], $memberToken);
+        self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
+    }
+
+    public function testUserCannotUpdateProjectTheyDoNotBelongTo(): void
+    {
+        $this->createUser();
+        $this->createUser('other@taskflow.fr');
+        $ownerToken = $this->loginAsUser();
+
+        $this->postProject($this->getValidCreateProjectPayload(), $ownerToken);
+        $projectId = $this->extractIntId($this->getJsonResponse());
+        $otherToken = $this->loginAndGetToken('other@taskflow.fr', 'TaskFlowUser123');
+
+        $this->updateProjectById($projectId, ['title' => 'Hack'], $otherToken);
+        self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
+    }
 }

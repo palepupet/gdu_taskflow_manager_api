@@ -7,6 +7,7 @@ namespace App\Controller\Project;
 use App\Controller\Trait\CurrentUserTrait;
 use App\Dto\Project\CreateProjectRequest;
 use App\Dto\Project\ProjectResponse;
+use App\Dto\Project\UpdateProjectRequest;
 use App\Entity\Project;
 use App\Enum\ProjectStatus;
 use App\Http\ApiErrorResponse;
@@ -101,5 +102,64 @@ class ProjectController extends AbstractController
             ProjectResponse::fromProject($project)->toArray(),
             Response::HTTP_CREATED
         );
+    }
+
+    /**
+     * @SuppressWarnings("PHPMD.ExcessiveMethodLength")
+     * @SuppressWarnings("PHPMD.NPathComplexity")
+     */
+    #[Route('/project/{id}', name:'project_update', requirements: ['id' => '\d+'], methods: ['PATCH'])]
+    public function update(
+        int $id,
+        Request $request,
+        ProjectRepositoryInterface $projectRepository,
+        EntityManagerInterface $entityManager,
+    ): JsonResponse {
+        $user = $this->getCurrentUser();
+
+        $project = $projectRepository->findById($id);
+        if (!$project instanceof Project) {
+            return ApiErrorResponse::notFound('Projet introuvable.');
+        }
+
+        if (!$project->canBeModifiedBy($user)) {
+            throw $this->createAccessDeniedException();
+        }
+
+        $data = $this->requestPayloadParser->decode($request);
+        if ($data instanceof JsonResponse) {
+            return $data;
+        }
+
+        $dto = $this->requestPayloadParser->validate(UpdateProjectRequest::fromArray($data));
+        if ($dto instanceof JsonResponse) {
+            return $dto;
+        }
+
+        /** @var UpdateProjectRequest $dto */
+        if (\is_string($dto->title)) {
+            $project->setTitle($dto->title);
+        }
+
+        if (null !== $dto->description || array_key_exists('description', $data)) {
+            $project->setDescription($dto->description);
+        }
+
+        if (null !== $dto->startAt || array_key_exists('startAt', $data)) {
+            $project->setStartAt($dto->getStartAtAsDateTime());
+        }
+
+        if (null !== $dto->endAt || array_key_exists('endAt', $data)) {
+            $project->setEndAt($dto->getEndAtAsDateTime());
+        }
+
+        $error = $this->requestPayloadParser->validateEntity($project);
+        if ($error instanceof JsonResponse) {
+            return $error;
+        }
+
+        $entityManager->flush();
+
+        return new JsonResponse(ProjectResponse::fromProject($project)->toArray());
     }
 }
