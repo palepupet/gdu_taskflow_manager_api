@@ -5,14 +5,17 @@ declare(strict_types=1);
 namespace App\Controller\Project;
 
 use App\Controller\Trait\CurrentUserTrait;
+use App\Dto\Project\AddProjectMemberRequest;
 use App\Dto\Project\CreateProjectRequest;
 use App\Dto\Project\ProjectResponse;
 use App\Dto\Project\UpdateProjectRequest;
 use App\Entity\Project;
+use App\Entity\User;
 use App\Enum\ProjectStatus;
 use App\Http\ApiErrorResponse;
 use App\Http\RequestPayloadParser;
 use App\Repository\ProjectRepositoryInterface;
+use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -20,6 +23,9 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
+/**
+ * @SuppressWarnings("PHPMD.CouplingBetweenObjects")
+ */
 class ProjectController extends AbstractController
 {
     use CurrentUserTrait;
@@ -180,6 +186,97 @@ class ProjectController extends AbstractController
 
             $project->changeStatus($newStatus);
         }
+
+        $error = $this->requestPayloadParser->validateEntity($project);
+        if ($error instanceof JsonResponse) {
+            return $error;
+        }
+
+        $entityManager->flush();
+
+        return new JsonResponse(ProjectResponse::fromProject($project)->toArray());
+    }
+
+    #[Route('/project/{id}/members', name:'project_member_add', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function addMember(
+        int $id,
+        Request $request,
+        ProjectRepositoryInterface $projectRepository,
+        UserRepository $userRepository,
+        EntityManagerInterface $entityManager,
+    ): JsonResponse {
+        $user = $this->getCurrentUser();
+
+        $project = $projectRepository->findById($id);
+        if (!$project instanceof Project) {
+            return ApiErrorResponse::notFound('Projet introuvable.');
+        }
+
+        if (!$project->canManageMembersBy($user)) {
+            throw $this->createAccessDeniedException();
+        }
+
+        $data = $this->requestPayloadParser->decode($request);
+        if ($data instanceof JsonResponse) {
+            return $data;
+        }
+
+        $dto = $this->requestPayloadParser->validate(AddProjectMemberRequest::fromArray($data));
+        if ($dto instanceof JsonResponse) {
+            return $dto;
+        }
+
+        /** @var AddProjectMemberRequest $dto */
+        $member = $userRepository->find($dto->userId);
+        if (!$member instanceof User) {
+            return ApiErrorResponse::notFound('Utilisateur introuvable.');
+        }
+
+        if (!$project->canBeAddedAsMember($member)) {
+            return ApiErrorResponse::conflict('INVALID_MEMBER', 'Le propriétaire ne peut pas être ajouté comme membre');
+        }
+
+        $project->addMember($member);
+
+        $error = $this->requestPayloadParser->validateEntity($project);
+        if ($error instanceof JsonResponse) {
+            return $error;
+        }
+
+        $entityManager->flush();
+
+        return new JsonResponse(ProjectResponse::fromProject($project)->toArray());
+    }
+
+    #[Route('/project/{id}/members/{memberId}', name:'project_member_remove', requirements: ['id' => '\d+', 'memberId' => '\d+'], methods: ['DELETE'])]
+    public function removeMember(
+        int $id,
+        int $memberId,
+        ProjectRepositoryInterface $projectRepository,
+        UserRepository $userRepository,
+        EntityManagerInterface $entityManager,
+    ): JsonResponse {
+        $user = $this->getCurrentUser();
+
+        $project = $projectRepository->findById($id);
+        if (!$project instanceof Project) {
+            return ApiErrorResponse::notFound('Projet introuvable.');
+        }
+
+        if (!$project->canManageMembersBy($user)) {
+            throw $this->createAccessDeniedException();
+        }
+
+        $member = $userRepository->find($memberId);
+        if (!$member instanceof User) {
+            return ApiErrorResponse::notFound('Utilisateur introuvable.');
+        }
+
+        if (!$project->isOneOfMembers($member)) {
+            return ApiErrorResponse::notFound('Cet utilisateur n\'est pas membre du projet.');
+        }
+
+        $project->removeMember($member);
 
         $error = $this->requestPayloadParser->validateEntity($project);
         if ($error instanceof JsonResponse) {
