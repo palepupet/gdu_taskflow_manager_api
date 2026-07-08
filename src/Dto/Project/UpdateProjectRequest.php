@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Dto\Project;
 
+use App\Enum\ProjectStatus;
 use Symfony\Component\Validator\Constraints as Assert;
 
 class UpdateProjectRequest
@@ -17,6 +18,8 @@ class UpdateProjectRequest
         public ?string $startAt = null,
         #[Assert\Date(message: 'La date de fin n\'est pas valide.')]
         public ?string $endAt = null,
+        #[Assert\Choice(callback: [ProjectStatus::class, 'values'])]
+        public ?string $status = null,
     ) {
     }
 
@@ -35,6 +38,9 @@ class UpdateProjectRequest
                 : null,
             endAt: array_key_exists('endAt', $data)
                 ? (\is_string($data['endAt']) ? $data['endAt'] : null)
+                : null,
+            status: isset($data['status']) && \is_string($data['status'])
+                ? $data['status']
                 : null,
         );
     }

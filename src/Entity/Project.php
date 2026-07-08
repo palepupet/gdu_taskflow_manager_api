@@ -13,6 +13,9 @@ use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Component\Validator\Context\ExecutionContextInterface;
 
+/**
+ * @SuppressWarnings("PHPMD.ExcessiveClassComplexity")
+ */
 #[ORM\Entity(repositoryClass: ProjectRepository::class)]
 #[ORM\HasLifecycleCallbacks]
 class Project
@@ -46,6 +49,9 @@ class Project
 
     #[ORM\Column()]
     private bool $isArchived = false;
+
+    #[ORM\Column(nullable: true)]
+    private ?\DateTimeImmutable $archivedAt = null;
 
     #[ORM\Column]
     private ?\DateTimeImmutable $createdAt = null;
@@ -153,6 +159,18 @@ class Project
         return $this;
     }
 
+    public function getArchivedAt(): ?\DateTimeImmutable
+    {
+        return $this->archivedAt;
+    }
+
+    public function setArchivedAt(?\DateTimeImmutable $archivedAt): static
+    {
+        $this->archivedAt = $archivedAt;
+
+        return $this;
+    }
+
     public function getCreatedAt(): ?\DateTimeImmutable
     {
         return $this->createdAt;
@@ -250,5 +268,51 @@ class Project
         $owner = $this->owner;
 
         return $owner instanceof User && $owner->getId() === $user->getId();
+    }
+
+    public function canBeRestoredBy(User $user): bool
+    {
+        if (!$this->isArchived()) {
+            return false;
+        }
+
+        if ($user->isManager()) {
+            return true;
+        }
+
+        $owner = $this->owner;
+
+        return $owner instanceof User && $owner->getId() === $user->getId();
+    }
+
+    public function isRestoreRequested(?string $status): bool
+    {
+        return \is_string($status)
+            && ProjectStatus::IN_PROGRESS->value === $status
+            && $this->isArchived();
+    }
+
+    public function restore(): void
+    {
+        if (!$this->isArchived()) {
+            throw new \LogicException('Impossible de restaurer un projet non archivé.');
+        }
+
+        $this->changeStatus(ProjectStatus::IN_PROGRESS);
+    }
+
+    public function changeStatus(ProjectStatus $status): void
+    {
+        if (ProjectStatus::COMPLETED === $status || ProjectStatus::CANCELLED === $status) {
+            $this->status = $status;
+            $this->isArchived = true;
+            $this->setArchivedAt(new \DateTimeImmutable());
+
+            return;
+        }
+
+        $this->status = ProjectStatus::IN_PROGRESS;
+        $this->isArchived = false;
+        $this->setArchivedAt(null);
     }
 }
