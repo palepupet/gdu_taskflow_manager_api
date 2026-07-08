@@ -15,6 +15,7 @@ use Symfony\Component\Validator\Context\ExecutionContextInterface;
 
 /**
  * @SuppressWarnings("PHPMD.ExcessiveClassComplexity")
+ * @SuppressWarnings("PHPMD.TooManyPublicMethods")
  */
 #[ORM\Entity(repositoryClass: ProjectRepository::class)]
 #[ORM\HasLifecycleCallbacks]
@@ -145,6 +146,28 @@ class Project
         $this->members->removeElement($member);
 
         return $this;
+    }
+
+    public function isOwner(User $user): bool
+    {
+        $owner = $this->owner;
+
+        return $owner instanceof User && $owner->getId() === $user->getId();
+    }
+
+    public function isOneOfMembers(User $user): bool
+    {
+        return $this->members->contains($user);
+    }
+
+    public function canManageMembersBy(User $user): bool
+    {
+        return $this->canBeModifiedBy($user);
+    }
+
+    public function canBeAddedAsMember(User $user): bool
+    {
+        return !$this->isOwner($user);
     }
 
     public function isArchived(): bool

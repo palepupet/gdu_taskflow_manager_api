@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace App\Tests\Project;
 
 use App\Entity\Project;
+use App\Entity\User;
 use App\Enum\ProjectStatus;
 use App\Tests\ApiTestCase;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
  * @SuppressWarnings("PHPMD.TooManyPublicMethods")
+ * @SuppressWarnings("PHPMD.TooManyMethods")
  */
 class ProjectControllerTest extends ApiTestCase
 {
@@ -419,5 +421,206 @@ class ProjectControllerTest extends ApiTestCase
         $this->updateProjectById($projectId, ['title' => 'Projet restauré'], $token);
         self::assertResponseIsSuccessful();
         self::assertSame('Projet restauré', $this->getJsonResponse()['title']);
+    }
+
+    public function testOwnerCanReadArchivedProject(): void
+    {
+        $this->createUser();
+        $token = $this->loginAsUser();
+
+        $this->postProject($this->getValidCreateProjectPayload(), $token);
+        $projectId = $this->extractIntId($this->getJsonResponse());
+
+        $this->updateProjectById($projectId, ['status' => ProjectStatus::COMPLETED->value], $token);
+        self::assertResponseIsSuccessful();
+
+        $this->getProjectById($projectId, $token);
+        self::assertResponseIsSuccessful();
+
+        $data = $this->getJsonResponse();
+        self::assertTrue($data['isArchived']);
+        self::assertSame(ProjectStatus::COMPLETED->value, $data['status']);
+    }
+
+    public function testMemberCanReadArchivedProject(): void
+    {
+        $this->createUser('owner@taskflow.fr');
+        $this->createUser('member@taskflow.fr');
+        $ownerToken = $this->loginAndGetToken('owner@taskflow.fr', 'TaskFlowUser123');
+
+        $this->postProject($this->getValidCreateProjectPayload(), $ownerToken);
+        $projectId = $this->extractIntId($this->getJsonResponse());
+
+        $project = $this->entityManager->getRepository(Project::class)->find($projectId);
+        self::assertNotNull($project);
+        $this->addMemberToProjectByEmail($project, 'member@taskflow.fr');
+
+        $this->updateProjectById($projectId, ['status' => ProjectStatus::COMPLETED->value], $ownerToken);
+        self::assertResponseIsSuccessful();
+
+        $memberToken = $this->loginAndGetToken('member@taskflow.fr', 'TaskFlowUser123');
+        $this->getProjectById($projectId, $memberToken);
+        self::assertResponseIsSuccessful();
+
+        self::assertTrue($this->getJsonResponse()['isArchived']);
+    }
+
+    public function testManagerCannotUpdateArchivedProject(): void
+    {
+        $this->createUser();
+        $userToken = $this->loginAsUser();
+        $managerToken = $this->loginAsManager();
+
+        $this->postProject($this->getValidCreateProjectPayload(), $userToken);
+        $projectId = $this->extractIntId($this->getJsonResponse());
+
+        $this->updateProjectById($projectId, ['status' => ProjectStatus::COMPLETED->value], $userToken);
+        self::assertResponseIsSuccessful();
+
+        $this->updateProjectById($projectId, ['title' => 'Tentative manager'], $managerToken);
+        self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
+    }
+
+    public function testMemberCannotUpdateArchivedProject(): void
+    {
+        $this->createUser('owner@taskflow.fr');
+        $this->createUser('member@taskflow.fr');
+        $ownerToken = $this->loginAndGetToken('owner@taskflow.fr', 'TaskFlowUser123');
+
+        $this->postProject($this->getValidCreateProjectPayload(), $ownerToken);
+        $projectId = $this->extractIntId($this->getJsonResponse());
+
+        $project = $this->entityManager->getRepository(Project::class)->find($projectId);
+        self::assertNotNull($project);
+        $this->addMemberToProjectByEmail($project, 'member@taskflow.fr');
+
+        $this->updateProjectById($projectId, ['status' => ProjectStatus::COMPLETED->value], $ownerToken);
+        self::assertResponseIsSuccessful();
+
+        $memberToken = $this->loginAndGetToken('member@taskflow.fr', 'TaskFlowUser123');
+        $this->updateProjectById($projectId, ['title' => 'Tentative membre'], $memberToken);
+        self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
+    }
+
+    public function testOwnerCanAddMemberToProject(): void
+    {
+        $this->createUser('owner@taskflow.fr');
+        $this->createUser('member@taskflow.fr');
+        $ownerToken = $this->loginAndGetToken('owner@taskflow.fr', 'TaskFlowUser123');
+
+        $this->postProject($this->getValidCreateProjectPayload(), $ownerToken);
+        $projectId = $this->extractIntId($this->getJsonResponse());
+
+        $member = $this->entityManager->getRepository(User::class)->findOneBy(['email' => 'member@taskflow.fr']);
+        self::assertNotNull($member);
+
+        $this->addProjectMemberById($projectId, ['userId' => $member->getId()], $ownerToken);
+        self::assertResponseIsSuccessful();
+
+        $data = $this->getJsonResponse();
+        self::assertIsArray($data['members']);
+        self::assertCount(1, $data['members']);
+        self::assertIsArray($data['members'][0]);
+        self::assertSame('member@taskflow.fr', $data['members'][0]['email']);
+    }
+
+    public function testManagerCanAddMemberToProject(): void
+    {
+        $this->createUser();
+        $this->createUser('member@taskflow.fr');
+        $userToken = $this->loginAsUser();
+        $managerToken = $this->loginAsManager();
+
+        $this->postProject($this->getValidCreateProjectPayload(), $userToken);
+        $projectId = $this->extractIntId($this->getJsonResponse());
+
+        $member = $this->entityManager->getRepository(User::class)->findOneBy(['email' => 'member@taskflow.fr']);
+        self::assertNotNull($member);
+
+        $this->addProjectMemberById($projectId, ['userId' => $member->getId()], $managerToken);
+        self::assertResponseIsSuccessful();
+    }
+
+    public function testMemberCannotAddMemberToProject(): void
+    {
+        $this->createUser('owner@taskflow.fr');
+        $this->createUser('member@taskflow.fr');
+        $this->createUser('other@taskflow.fr');
+        $ownerToken = $this->loginAndGetToken('owner@taskflow.fr', 'TaskFlowUser123');
+
+        $this->postProject($this->getValidCreateProjectPayload(), $ownerToken);
+        $projectId = $this->extractIntId($this->getJsonResponse());
+
+        $project = $this->entityManager->getRepository(Project::class)->find($projectId);
+        self::assertNotNull($project);
+        $this->addMemberToProjectByEmail($project, 'member@taskflow.fr');
+
+        $other = $this->entityManager->getRepository(User::class)->findOneBy(['email' => 'other@taskflow.fr']);
+        self::assertNotNull($other);
+
+        $memberToken = $this->loginAndGetToken('member@taskflow.fr', 'TaskFlowUser123');
+        $this->addProjectMemberById($projectId, ['userId' => $other->getId()], $memberToken);
+        self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
+    }
+
+    public function testCannotAddOwnerAsMember(): void
+    {
+        $this->createUser('owner@taskflow.fr');
+        $ownerToken = $this->loginAndGetToken('owner@taskflow.fr', 'TaskFlowUser123');
+
+        $this->postProject($this->getValidCreateProjectPayload(), $ownerToken);
+        $projectId = $this->extractIntId($this->getJsonResponse());
+
+        $owner = $this->entityManager->getRepository(User::class)->findOneBy(['email' => 'owner@taskflow.fr']);
+        self::assertNotNull($owner);
+
+        $this->addProjectMemberById($projectId, ['userId' => $owner->getId()], $ownerToken);
+        self::assertResponseStatusCodeSame(Response::HTTP_CONFLICT);
+    }
+
+    public function testOwnerCanRemoveMemberFromProject(): void
+    {
+        $this->createUser('owner@taskflow.fr');
+        $this->createUser('member@taskflow.fr');
+        $ownerToken = $this->loginAndGetToken('owner@taskflow.fr', 'TaskFlowUser123');
+
+        $this->postProject($this->getValidCreateProjectPayload(), $ownerToken);
+        $projectId = $this->extractIntId($this->getJsonResponse());
+
+        $project = $this->entityManager->getRepository(Project::class)->find($projectId);
+        self::assertNotNull($project);
+        $this->addMemberToProjectByEmail($project, 'member@taskflow.fr');
+
+        $member = $this->entityManager->getRepository(User::class)->findOneBy(['email' => 'member@taskflow.fr']);
+        self::assertNotNull($member);
+
+        $memberId = $member->getId();
+        self::assertIsInt($memberId);
+
+        $this->removeProjectMemberById($projectId, $memberId, $ownerToken);
+        self::assertResponseIsSuccessful();
+
+        $data = $this->getJsonResponse();
+        self::assertIsArray($data['members']);
+        self::assertCount(0, $data['members']);
+    }
+
+    public function testCannotManageMembersOnArchivedProject(): void
+    {
+        $this->createUser('owner@taskflow.fr');
+        $this->createUser('member@taskflow.fr');
+        $ownerToken = $this->loginAndGetToken('owner@taskflow.fr', 'TaskFlowUser123');
+
+        $this->postProject($this->getValidCreateProjectPayload(), $ownerToken);
+        $projectId = $this->extractIntId($this->getJsonResponse());
+
+        $this->updateProjectById($projectId, ['status' => ProjectStatus::COMPLETED->value], $ownerToken);
+        self::assertResponseIsSuccessful();
+
+        $member = $this->entityManager->getRepository(User::class)->findOneBy(['email' => 'member@taskflow.fr']);
+        self::assertNotNull($member);
+
+        $this->addProjectMemberById($projectId, ['userId' => $member->getId()], $ownerToken);
+        self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
     }
 }
