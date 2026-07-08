@@ -212,14 +212,18 @@ class ProjectFixtures extends Fixture implements DependentFixtureInterface
         $project
             ->setTitle($title)
             ->setDescription($description)
-            ->setStatus($status)
             ->setOwner($owner)
-            ->setIsArchived($isArchived)
             ->setStartAt(null !== $startAt ? new \DateTimeImmutable($startAt) : null)
             ->setEndAt(null !== $endAt ? new \DateTimeImmutable($endAt) : null);
 
         if (null !== $updatedAt) {
             $project->setUpdatedAt(new \DateTimeImmutable($updatedAt));
+        }
+
+        $project->changeStatus($status);
+
+        if ($project->isArchived() !== $isArchived) {
+            throw new \InvalidArgumentException(sprintf('Incohérence fixture "%s" : status=%s mais isArchived=%s', $title, $status->value, $isArchived ? 'true' : 'false'));
         }
 
         foreach ($memberEmails as $email) {

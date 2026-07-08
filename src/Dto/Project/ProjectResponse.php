@@ -27,6 +27,7 @@ class ProjectResponse
         public ?string $startAt,
         public ?string $endAt,
         public ?string $updatedAt,
+        public ?string $archivedAt,
     ) {
     }
 
@@ -56,6 +57,7 @@ class ProjectResponse
             startAt: $project->getStartAt()?->format('Y-m-d'),
             endAt: $project->getEndAt()?->format('Y-m-d'),
             updatedAt: $project->getUpdatedAt()?->format(\DateTimeInterface::ATOM),
+            archivedAt: $project->getArchivedAt()?->format(\DateTimeInterface::ATOM),
         );
     }
 
@@ -79,6 +81,7 @@ class ProjectResponse
             'startAt' => $this->startAt,
             'endAt' => $this->endAt,
             'updatedAt' => $this->updatedAt,
+            'archivedAt' => $this->archivedAt,
         ];
     }
 }

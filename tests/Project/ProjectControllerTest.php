@@ -289,4 +289,135 @@ class ProjectControllerTest extends ApiTestCase
         $this->updateProjectById($projectId, ['title' => 'Hack'], $otherToken);
         self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
     }
+
+    public function testOwnerCanArchiveProjectBySettingStatusToCompleted(): void
+    {
+        $this->createUser();
+        $token = $this->loginAsUser();
+
+        $this->postProject($this->getValidCreateProjectPayload(), $token);
+        $projectId = $this->extractIntId($this->getJsonResponse());
+
+        $this->updateProjectById($projectId, ['status' => ProjectStatus::COMPLETED->value], $token);
+        self::assertResponseIsSuccessful();
+
+        $data = $this->getJsonResponse();
+        self::assertSame(ProjectStatus::COMPLETED->value, $data['status']);
+        self::assertTrue($data['isArchived']);
+        self::assertIsString($data['archivedAt']);
+        self::assertNotFalse(\DateTimeImmutable::createFromFormat(\DateTimeInterface::ATOM, $data['archivedAt']));
+    }
+
+    public function testManagerCanCancelProject(): void
+    {
+        $this->createUser();
+        $token = $this->loginAsUser();
+        $managerToken = $this->loginAsManager();
+
+        $this->postProject($this->getValidCreateProjectPayload(), $token);
+        $projectId = $this->extractIntId($this->getJsonResponse());
+
+        $this->updateProjectById($projectId, ['status' => ProjectStatus::CANCELLED->value], $managerToken);
+        self::assertResponseIsSuccessful();
+
+        $data = $this->getJsonResponse();
+        self::assertSame(ProjectStatus::CANCELLED->value, $data['status']);
+        self::assertTrue($data['isArchived']);
+        self::assertIsString($data['archivedAt']);
+        self::assertNotFalse(\DateTimeImmutable::createFromFormat(\DateTimeInterface::ATOM, $data['archivedAt']));
+    }
+
+    public function testArchivedProjectCannotBeUpdated(): void
+    {
+        $this->createUser();
+        $token = $this->loginAsUser();
+
+        $this->postProject($this->getValidCreateProjectPayload(), $token);
+        $projectId = $this->extractIntId($this->getJsonResponse());
+
+        $this->updateProjectById($projectId, ['status' => ProjectStatus::COMPLETED->value], $token);
+        self::assertResponseIsSuccessful();
+
+        $this->updateProjectById($projectId, ['title' => 'Tentative'], $token);
+        self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
+    }
+
+    public function testOwnerCanRestoreArchivedProject(): void
+    {
+        $this->createUser();
+        $token = $this->loginAsUser();
+
+        $this->postProject($this->getValidCreateProjectPayload(), $token);
+        $projectId = $this->extractIntId($this->getJsonResponse());
+
+        $this->updateProjectById($projectId, ['status' => ProjectStatus::COMPLETED->value], $token);
+        self::assertResponseIsSuccessful();
+
+        $this->updateProjectById($projectId, ['status' => ProjectStatus::IN_PROGRESS->value], $token);
+        self::assertResponseIsSuccessful();
+
+        $data = $this->getJsonResponse();
+        self::assertSame(ProjectStatus::IN_PROGRESS->value, $data['status']);
+        self::assertFalse($data['isArchived']);
+        self::assertNull($data['archivedAt']);
+    }
+
+    public function testManagerCanRestoreArchivedProject(): void
+    {
+        $this->createUser();
+        $userToken = $this->loginAsUser();
+        $managerToken = $this->loginAsManager();
+
+        $this->postProject($this->getValidCreateProjectPayload(), $userToken);
+        $projectId = $this->extractIntId($this->getJsonResponse());
+
+        $this->updateProjectById($projectId, ['status' => ProjectStatus::CANCELLED->value], $managerToken);
+        self::assertResponseIsSuccessful();
+
+        $this->updateProjectById($projectId, ['status' => ProjectStatus::IN_PROGRESS->value], $managerToken);
+        self::assertResponseIsSuccessful();
+
+        $data = $this->getJsonResponse();
+        self::assertSame(ProjectStatus::IN_PROGRESS->value, $data['status']);
+        self::assertFalse($data['isArchived']);
+        self::assertNull($data['archivedAt']);
+    }
+
+    public function testMemberCannotRestoreArchivedProject(): void
+    {
+        $this->createUser('owner@taskflow.fr');
+        $this->createUser('member@taskflow.fr');
+        $ownerToken = $this->loginAndGetToken('owner@taskflow.fr', 'TaskFlowUser123');
+
+        $this->postProject($this->getValidCreateProjectPayload(), $ownerToken);
+        $projectId = $this->extractIntId($this->getJsonResponse());
+
+        $this->updateProjectById($projectId, ['status' => ProjectStatus::COMPLETED->value], $ownerToken);
+        self::assertResponseIsSuccessful();
+
+        $project = $this->entityManager->getRepository(Project::class)->find($projectId);
+        self::assertNotNull($project);
+        $this->addMemberToProjectByEmail($project, 'member@taskflow.fr');
+
+        $memberToken = $this->loginAndGetToken('member@taskflow.fr', 'TaskFlowUser123');
+        $this->updateProjectById($projectId, ['status' => ProjectStatus::IN_PROGRESS->value], $memberToken);
+        self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
+    }
+
+    public function testRestoredProjectCanBeUpdatedAgain(): void
+    {
+        $this->createUser();
+        $token = $this->loginAsUser();
+
+        $this->postProject($this->getValidCreateProjectPayload(), $token);
+        $projectId = $this->extractIntId($this->getJsonResponse());
+
+        $this->updateProjectById($projectId, ['status' => ProjectStatus::COMPLETED->value], $token);
+        $this->updateProjectById($projectId, ['status' => ProjectStatus::IN_PROGRESS->value], $token);
+        self::assertResponseIsSuccessful();
+
+        $this->updateProjectById($projectId, ['title' => 'Projet restauré'], $token);
+        self::assertResponseIsSuccessful();
+        self::assertSame('Projet restauré', $this->getJsonResponse()['title']);
+    }
 }

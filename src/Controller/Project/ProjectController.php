@@ -107,6 +107,7 @@ class ProjectController extends AbstractController
     /**
      * @SuppressWarnings("PHPMD.ExcessiveMethodLength")
      * @SuppressWarnings("PHPMD.NPathComplexity")
+     * @SuppressWarnings("PHPMD.CyclomaticComplexity")
      */
     #[Route('/project/{id}', name:'project_update', requirements: ['id' => '\d+'], methods: ['PATCH'])]
     public function update(
@@ -122,10 +123,6 @@ class ProjectController extends AbstractController
             return ApiErrorResponse::notFound('Projet introuvable.');
         }
 
-        if (!$project->canBeModifiedBy($user)) {
-            throw $this->createAccessDeniedException();
-        }
-
         $data = $this->requestPayloadParser->decode($request);
         if ($data instanceof JsonResponse) {
             return $data;
@@ -134,6 +131,28 @@ class ProjectController extends AbstractController
         $dto = $this->requestPayloadParser->validate(UpdateProjectRequest::fromArray($data));
         if ($dto instanceof JsonResponse) {
             return $dto;
+        }
+
+        /** @var UpdateProjectRequest $dto */
+        if ($project->isRestoreRequested($dto->status)) {
+            if (!$project->canBeRestoredBy($user)) {
+                throw $this->createAccessDeniedException();
+            }
+
+            $project->restore();
+
+            $error = $this->requestPayloadParser->validateEntity($project);
+            if ($error instanceof JsonResponse) {
+                return $error;
+            }
+
+            $entityManager->flush();
+
+            return new JsonResponse(ProjectResponse::fromProject($project)->toArray());
+        }
+
+        if (!$project->canBeModifiedBy($user)) {
+            throw $this->createAccessDeniedException();
         }
 
         /** @var UpdateProjectRequest $dto */
@@ -151,6 +170,15 @@ class ProjectController extends AbstractController
 
         if (null !== $dto->endAt || array_key_exists('endAt', $data)) {
             $project->setEndAt($dto->getEndAtAsDateTime());
+        }
+
+        if (\is_string($dto->status)) {
+            $newStatus = ProjectStatus::tryFrom($dto->status);
+            if (null === $newStatus) {
+                return ApiErrorResponse::badRequest('Statut de projet invalide.');
+            }
+
+            $project->changeStatus($newStatus);
         }
 
         $error = $this->requestPayloadParser->validateEntity($project);
