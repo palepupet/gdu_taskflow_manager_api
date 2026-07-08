@@ -514,7 +514,9 @@ class ProjectControllerTest extends ApiTestCase
         $member = $this->entityManager->getRepository(User::class)->findOneBy(['email' => 'member@taskflow.fr']);
         self::assertNotNull($member);
 
-        $this->addProjectMemberById($projectId, ['userId' => $member->getId()], $ownerToken);
+        $memberId = $member->getId();
+        self::assertIsInt($memberId);
+        $this->addProjectMembersById($projectId, ['members' => [$memberId]], $ownerToken);
         self::assertResponseIsSuccessful();
 
         $data = $this->getJsonResponse();
@@ -537,7 +539,9 @@ class ProjectControllerTest extends ApiTestCase
         $member = $this->entityManager->getRepository(User::class)->findOneBy(['email' => 'member@taskflow.fr']);
         self::assertNotNull($member);
 
-        $this->addProjectMemberById($projectId, ['userId' => $member->getId()], $managerToken);
+        $memberId = $member->getId();
+        self::assertIsInt($memberId);
+        $this->addProjectMembersById($projectId, ['members' => [$memberId]], $managerToken);
         self::assertResponseIsSuccessful();
     }
 
@@ -559,7 +563,9 @@ class ProjectControllerTest extends ApiTestCase
         self::assertNotNull($other);
 
         $memberToken = $this->loginAndGetToken('member@taskflow.fr', 'TaskFlowUser123');
-        $this->addProjectMemberById($projectId, ['userId' => $other->getId()], $memberToken);
+        $otherId = $other->getId();
+        self::assertIsInt($otherId);
+        $this->addProjectMembersById($projectId, ['members' => [$otherId]], $memberToken);
         self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
     }
 
@@ -574,7 +580,9 @@ class ProjectControllerTest extends ApiTestCase
         $owner = $this->entityManager->getRepository(User::class)->findOneBy(['email' => 'owner@taskflow.fr']);
         self::assertNotNull($owner);
 
-        $this->addProjectMemberById($projectId, ['userId' => $owner->getId()], $ownerToken);
+        $ownerId = $owner->getId();
+        self::assertIsInt($ownerId);
+        $this->addProjectMembersById($projectId, ['members' => [$ownerId]], $ownerToken);
         self::assertResponseStatusCodeSame(Response::HTTP_CONFLICT);
     }
 
@@ -597,7 +605,7 @@ class ProjectControllerTest extends ApiTestCase
         $memberId = $member->getId();
         self::assertIsInt($memberId);
 
-        $this->removeProjectMemberById($projectId, $memberId, $ownerToken);
+        $this->removeProjectMembersById($projectId, ['members' => [$memberId]], $ownerToken);
         self::assertResponseIsSuccessful();
 
         $data = $this->getJsonResponse();
@@ -620,7 +628,9 @@ class ProjectControllerTest extends ApiTestCase
         $member = $this->entityManager->getRepository(User::class)->findOneBy(['email' => 'member@taskflow.fr']);
         self::assertNotNull($member);
 
-        $this->addProjectMemberById($projectId, ['userId' => $member->getId()], $ownerToken);
+        $memberId = $member->getId();
+        self::assertIsInt($memberId);
+        $this->addProjectMembersById($projectId, ['members' => [$memberId]], $ownerToken);
         self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
     }
 }
