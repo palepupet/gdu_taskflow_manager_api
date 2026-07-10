@@ -12,4 +12,6 @@ interface TaskRepositoryInterface
      * @return list<Task>
      */
     public function findByProjectId(int $projectId): array;
+
+    public function findById(int $id): ?Task;
 }

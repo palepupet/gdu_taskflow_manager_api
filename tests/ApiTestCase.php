@@ -284,6 +284,19 @@ abstract class ApiTestCase extends WebTestCase
         $this->requestJson('POST', '/project/'.$projectId.'/tasks', $payload, $token);
     }
 
+    protected function getTaskById(int $id, ?string $token = null): void
+    {
+        $this->requestJson('GET', '/task/'.$id, null, $token);
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    protected function updateTaskById(int $id, array $payload, ?string $token = null): void
+    {
+        $this->requestJson('PATCH', '/task/'.$id, $payload, $token);
+    }
+
     private function resetDatabase(): void
     {
         $metadata = $this->entityManager->getMetadataFactory()->getAllMetadata();

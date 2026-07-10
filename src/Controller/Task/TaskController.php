@@ -7,6 +7,7 @@ namespace App\Controller\Task;
 use App\Controller\Trait\CurrentUserTrait;
 use App\Dto\Task\CreateTaskRequest;
 use App\Dto\Task\TaskResponse;
+use App\Dto\Task\UpdateTaskRequest;
 use App\Entity\Project;
 use App\Entity\Task;
 use App\Entity\User;
@@ -59,6 +60,105 @@ class TaskController extends AbstractController
         );
 
         return new JsonResponse($data);
+    }
+
+    #[Route('/task/{id}', name:'task_detail', requirements: ['id' => '\d+'], methods: ['GET'])]
+    public function detail(
+        int $id,
+        TaskRepositoryInterface $taskRepository,
+    ): JsonResponse {
+        $user = $this->getCurrentUser();
+
+        $task = $taskRepository->findById($id);
+        if (!$task instanceof Task) {
+            return ApiErrorResponse::notFound('Tâche introuvable.');
+        }
+
+        if (!$task->isAccessibleBy($user)) {
+            throw $this->createAccessDeniedException();
+        }
+
+        return new JsonResponse(TaskResponse::fromTask($task)->toArray());
+    }
+
+    /**
+     * @SuppressWarnings("PHPMD.ExcessiveMethodLength")
+     * @SuppressWarnings("PHPMD.NPathComplexity")
+     * @SuppressWarnings("PHPMD.CyclomaticComplexity")
+     */
+    #[Route('/task/{id}', name:'task_update', requirements: ['id' => '\d+'], methods: ['PATCH'])]
+    public function update(
+        int $id,
+        Request $request,
+        TaskRepositoryInterface $taskRepository,
+        UserRepository $userRepository,
+        EntityManagerInterface $entityManager,
+    ): JsonResponse {
+        $user = $this->getCurrentUser();
+
+        $task = $taskRepository->findById($id);
+        if (!$task instanceof Task) {
+            return ApiErrorResponse::notFound('Tâche introuvable.');
+        }
+
+        if (!$task->canBeModifiedBy($user)) {
+            throw $this->createAccessDeniedException();
+        }
+
+        $data = $this->requestPayloadParser->decode($request);
+        if ($data instanceof JsonResponse) {
+            return $data;
+        }
+
+        $dto = $this->requestPayloadParser->validate(UpdateTaskRequest::fromArray($data));
+        if ($dto instanceof JsonResponse) {
+            return $dto;
+        }
+
+        /** @var UpdateTaskRequest $dto */
+        if (\is_string($dto->title)) {
+            $task->setTitle($dto->title);
+        }
+
+        if (null !== $dto->description || array_key_exists('description', $data)) {
+            $task->setDescription($dto->description);
+        }
+
+        if (null !== $dto->dueAt || array_key_exists('dueAt', $data)) {
+            $task->setDueAt($dto->getDueAtAsDateTime());
+        }
+
+        $priority = $dto->getPriorityAsEnum();
+        if (null !== $priority) {
+            $task->setPriority($priority);
+        }
+
+        if (array_key_exists('assigneeId', $data) && null === $data['assigneeId']) {
+            $task->setAssignee(null);
+        }
+
+        if (array_key_exists('assigneeId', $data) && null !== $data['assigneeId']) {
+            $assignee = $userRepository->find($dto->assigneeId);
+            if (!$assignee instanceof User) {
+                return ApiErrorResponse::notFound('Utilisateur assigné introuvable.');
+            }
+
+            $project = $task->getProject();
+            if ($project instanceof Project) {
+                $project->addMemberWhenAssigning($assignee);
+            }
+
+            $task->setAssignee($assignee);
+        }
+
+        $error = $this->requestPayloadParser->validateEntity($task);
+        if ($error instanceof JsonResponse) {
+            return $error;
+        }
+
+        $entityManager->flush();
+
+        return new JsonResponse(TaskResponse::fromTask($task)->toArray());
     }
 
     /**

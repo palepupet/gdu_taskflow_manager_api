@@ -151,4 +151,101 @@ class TaskControllerTest extends ApiTestCase
         self::assertArrayHasKey('email', $firstMember);
         self::assertSame('assignee@taskflow.fr', $firstMember['email']);
     }
+
+    public function testMemberCanGetTaskDetail(): void
+    {
+        $this->createUser('owner@taskflow.fr');
+        $this->createUser('member@taskflow.fr');
+
+        $ownerToken = $this->loginAndGetToken('owner@taskflow.fr', 'TaskFlowUser123');
+        $this->postProject(['title' => 'Projet', 'description' => 'Test'], $ownerToken);
+
+        $projectId = $this->extractIntId($this->getJsonResponse());
+
+        $this->postProjectTask($projectId, ['title' => 'Ma tâche'], $ownerToken);
+        self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
+
+        $taskId = $this->extractIntId($this->getJsonResponse());
+
+        $project = $this->entityManager->getRepository(Project::class)->find($projectId);
+        self::assertNotNull($project);
+
+        $this->addMemberToProjectByEmail($project, 'member@taskflow.fr');
+        $memberToken = $this->loginAndGetToken('member@taskflow.fr', 'TaskFlowUser123');
+
+        $this->getTaskById($taskId, $memberToken);
+        self::assertResponseIsSuccessful();
+
+        $data = $this->getJsonResponse();
+        self::assertSame('Ma tâche', $data['title']);
+        self::assertSame($projectId, $data['projectId']);
+    }
+
+    public function testNonMemberCannotGetTaskDetail(): void
+    {
+        $this->createUser('owner@taskflow.fr');
+        $this->createUser('other@taskflow.fr');
+
+        $ownerToken = $this->loginAndGetToken('owner@taskflow.fr', 'TaskFlowUser123');
+        $this->postProject(['title' => 'Projet', 'description' => 'Test'], $ownerToken);
+
+        $projectId = $this->extractIntId($this->getJsonResponse());
+
+        $this->postProjectTask($projectId, ['title' => 'Privée'], $ownerToken);
+
+        $taskId = $this->extractIntId($this->getJsonResponse());
+
+        $otherToken = $this->loginAndGetToken('other@taskflow.fr', 'TaskFlowUser123');
+        $this->getTaskById($taskId, $otherToken);
+        self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
+    }
+
+    public function testOwnerCanUpdateTask(): void
+    {
+        $this->createUser('owner@taskflow.fr');
+        $ownerToken = $this->loginAndGetToken('owner@taskflow.fr', 'TaskFlowUser123');
+
+        $this->postProject(['title' => 'Projet', 'description' => 'Test'], $ownerToken);
+
+        $projectId = $this->extractIntId($this->getJsonResponse());
+
+        $this->postProjectTask($projectId, ['title' => 'Avant'], $ownerToken);
+
+        $taskId = $this->extractIntId($this->getJsonResponse());
+
+        $this->updateTaskById($taskId, [
+            'title' => 'Après',
+            'description' => 'Nouvelle description',
+            'priority' => TaskPriority::HIGH->value,
+        ], $ownerToken);
+        self::assertResponseIsSuccessful();
+
+        $data = $this->getJsonResponse();
+        self::assertSame('Après', $data['title']);
+        self::assertSame('Nouvelle description', $data['description']);
+        self::assertSame(TaskPriority::HIGH->value, $data['priority']);
+    }
+
+    public function testMemberCannotUpdateTask(): void
+    {
+        $this->createUser('owner@taskflow.fr');
+        $this->createUser('member@taskflow.fr');
+
+        $ownerToken = $this->loginAndGetToken('owner@taskflow.fr', 'TaskFlowUser123');
+        $this->postProject(['title' => 'Projet', 'description' => 'Test'], $ownerToken);
+
+        $projectId = $this->extractIntId($this->getJsonResponse());
+
+        $this->postProjectTask($projectId, ['title' => 'Tâche'], $ownerToken);
+
+        $taskId = $this->extractIntId($this->getJsonResponse());
+        $project = $this->entityManager->getRepository(Project::class)->find($projectId);
+
+        self::assertNotNull($project);
+        $this->addMemberToProjectByEmail($project, 'member@taskflow.fr');
+
+        $memberToken = $this->loginAndGetToken('member@taskflow.fr', 'TaskFlowUser123');
+        $this->updateTaskById($taskId, ['title' => 'Hack'], $memberToken);
+        self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
+    }
 }

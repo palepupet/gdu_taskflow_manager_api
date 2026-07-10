@@ -30,4 +30,12 @@ class TaskRepository extends ServiceEntityRepository implements TaskRepositoryIn
 
         return $tasks;
     }
+
+    public function findById(int $id): ?Task
+    {
+        /** @var Task|null $task */
+        $task = $this->find($id);
+
+        return $task;
+    }
 }
