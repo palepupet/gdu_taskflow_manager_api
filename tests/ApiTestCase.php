@@ -271,6 +271,19 @@ abstract class ApiTestCase extends WebTestCase
         $this->requestJson('DELETE', '/project/'.$projectId.'/members', $payload, $token);
     }
 
+    protected function getProjectTasks(int $projectId, ?string $token = null): void
+    {
+        $this->requestJson('GET', '/project/'.$projectId.'/tasks', null, $token);
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    protected function postProjectTask(int $projectId, array $payload, ?string $token = null): void
+    {
+        $this->requestJson('POST', '/project/'.$projectId.'/tasks', $payload, $token);
+    }
+
     private function resetDatabase(): void
     {
         $metadata = $this->entityManager->getMetadataFactory()->getAllMetadata();

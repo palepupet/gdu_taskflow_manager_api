@@ -7,6 +7,8 @@ namespace App\Tests\Project;
 use App\Entity\Project;
 use App\Entity\User;
 use App\Enum\ProjectStatus;
+use App\Enum\TaskPriority;
+use App\Enum\TaskState;
 use App\Tests\ApiTestCase;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -632,5 +634,67 @@ class ProjectControllerTest extends ApiTestCase
         self::assertIsInt($memberId);
         $this->addProjectMembersById($projectId, ['members' => [$memberId]], $ownerToken);
         self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
+    }
+
+    /**
+     * @SuppressWarnings("PHPMD.ExcessiveMethodLength")
+     */
+    public function testOwnerCanGetProjectWithItsTasks(): void
+    {
+        $this->createUser();
+        $token = $this->loginAsUser();
+
+        $this->postProject($this->getValidCreateProjectPayload(), $token);
+        self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
+
+        $projectId = $this->extractIntId($this->getJsonResponse());
+
+        $this->postProjectTask($projectId, [
+            'title' => 'Tâche 1',
+            'priority' => TaskPriority::HIGH->value,
+        ], $token);
+        self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
+
+        $this->postProjectTask($projectId, [
+            'title' => 'Tâche 2',
+        ], $token);
+        self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
+
+        $this->getProjectById($projectId, $token);
+        self::assertResponseIsSuccessful();
+
+        $data = $this->getJsonResponse();
+        self::assertSame($projectId, $data['id']);
+        self::assertArrayHasKey('tasks', $data);
+        self::assertIsArray($data['tasks']);
+        self::assertCount(2, $data['tasks']);
+
+        $titles = array_column($data['tasks'], 'title');
+        self::assertContains('Tâche 1', $titles);
+        self::assertContains('Tâche 2', $titles);
+
+        foreach ($data['tasks'] as $task) {
+            self::assertIsArray($task);
+            self::assertArrayHasKey('id', $task);
+            self::assertArrayHasKey('title', $task);
+            self::assertArrayHasKey('description', $task);
+            self::assertArrayHasKey('dueAt', $task);
+            self::assertArrayHasKey('priority', $task);
+            self::assertArrayHasKey('state', $task);
+            self::assertArrayHasKey('projectId', $task);
+            self::assertArrayHasKey('assignee', $task);
+            self::assertArrayHasKey('createdAt', $task);
+            self::assertArrayHasKey('updatedAt', $task);
+            self::assertSame($projectId, $task['projectId']);
+            self::assertSame(TaskState::OPEN->value, $task['state']);
+        }
+
+        $task1 = $data['tasks'][array_search('Tâche 1', $titles, true)];
+        self::assertIsArray($task1);
+        self::assertSame(TaskPriority::HIGH->value, $task1['priority']);
+
+        $task2 = $data['tasks'][array_search('Tâche 2', $titles, true)];
+        self::assertIsArray($task2);
+        self::assertSame(TaskPriority::MEDIUM->value, $task2['priority']);
     }
 }
