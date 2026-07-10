@@ -164,9 +164,29 @@ class Task
         return $this;
     }
 
+    public function isAccessibleBy(User $user): bool
+    {
+        $project = $this->project;
+
+        return $project instanceof Project && $project->isAccessibleBy($user);
+    }
+
+    public function canBeModifiedBy(User $user): bool
+    {
+        $project = $this->project;
+
+        return $project instanceof Project && $project->canBeModifiedBy($user);
+    }
+
     #[ORM\PrePersist]
     public function onPrePersist(): void
     {
         $this->createdAt ??= new \DateTimeImmutable();
+    }
+
+    #[ORM\PreUpdate]
+    public function onPreUpdate(): void
+    {
+        $this->updatedAt = new \DateTimeImmutable();
     }
 }
