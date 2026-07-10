@@ -66,9 +66,17 @@ class Project
     #[ORM\Column(nullable: true)]
     private ?\DateTimeImmutable $updatedAt = null;
 
+    /**
+     * @var Collection<int, Task>
+     */
+    #[ORM\OneToMany(targetEntity: Task::class, mappedBy: 'project', cascade: ['persist'], orphanRemoval: true)]
+    #[ORM\OrderBy(['id' => 'DESC'])]
+    private Collection $tasks;
+
     public function __construct()
     {
         $this->members = new ArrayCollection();
+        $this->tasks = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -337,5 +345,48 @@ class Project
         $this->status = ProjectStatus::IN_PROGRESS;
         $this->isArchived = false;
         $this->setArchivedAt(null);
+    }
+
+    /**
+     * @return Collection<int, Task>
+     */
+    public function getTasks(): Collection
+    {
+        return $this->tasks;
+    }
+
+    public function addTask(Task $task): static
+    {
+        if (!$this->tasks->contains($task)) {
+            $this->tasks->add($task);
+            $task->setProject($this);
+        }
+
+        return $this;
+    }
+
+    public function removeTask(Task $task): static
+    {
+        if ($this->tasks->removeElement($task)) {
+            if ($task->getProject() === $this) {
+                $task->setProject(null);
+            }
+        }
+
+        return $this;
+    }
+
+    public function canCreateTaskBy(User $user): bool
+    {
+        return $this->canBeModifiedBy($user);
+    }
+
+    public function addMemberWhenAssigning(User $user): void
+    {
+        if ($this->isOwner($user)) {
+            return;
+        }
+
+        $this->addMember($user);
     }
 }
