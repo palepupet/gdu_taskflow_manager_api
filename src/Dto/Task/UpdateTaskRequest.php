@@ -21,7 +21,7 @@ class UpdateTaskRequest
         public ?string $priority = null,
         #[Assert\Choice(callback: [TaskState::class, 'values'])]
         public ?string $state = null,
-        public ?int $assigneeId = null,
+        public ?int $assignee = null,
     ) {
     }
 
@@ -30,9 +30,9 @@ class UpdateTaskRequest
      */
     public static function fromArray(array $data): self
     {
-        $assigneeId = null;
-        if (array_key_exists('assigneeId', $data) && is_numeric($data['assigneeId'])) {
-            $assigneeId = (int) $data['assigneeId'];
+        $assignee = null;
+        if (array_key_exists('assignee', $data) && is_numeric($data['assignee'])) {
+            $assignee = (int) $data['assignee'];
         }
 
         return new self(
@@ -45,7 +45,7 @@ class UpdateTaskRequest
                 : null,
             priority: isset($data['priority']) && \is_string($data['priority']) ? $data['priority'] : null,
             state: isset($data['state']) && \is_string($data['state']) ? $data['state'] : null,
-            assigneeId: $assigneeId,
+            assignee: $assignee,
         );
     }
 

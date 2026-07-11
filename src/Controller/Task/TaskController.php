@@ -120,13 +120,12 @@ class TaskController extends AbstractController
             || array_key_exists('description', $data)
             || array_key_exists('dueAt', $data)
             || null !== $dto->getPriorityAsEnum()
-            || array_key_exists('assigneeId', $data);
+            || array_key_exists('assignee', $data);
 
         if ($shouldUpdateNonStateField && !$task->canBeModifiedBy($user)) {
             throw $this->createAccessDeniedException();
         }
 
-        /** @var UpdateTaskRequest $dto */
         if (\is_string($dto->title)) {
             $task->setTitle($dto->title);
         }
@@ -157,12 +156,12 @@ class TaskController extends AbstractController
             $task->setState($newState);
         }
 
-        if (array_key_exists('assigneeId', $data) && null === $data['assigneeId']) {
+        if (array_key_exists('assignee', $data) && null === $data['assignee']) {
             $task->setAssignee(null);
         }
 
-        if (array_key_exists('assigneeId', $data) && null !== $data['assigneeId']) {
-            $assignee = $userRepository->find($dto->assigneeId);
+        if (array_key_exists('assignee', $data) && null !== $data['assignee']) {
+            $assignee = $userRepository->find($dto->assignee);
             if (!$assignee instanceof User) {
                 return ApiErrorResponse::notFound('Utilisateur assigné introuvable.');
             }
@@ -225,8 +224,8 @@ class TaskController extends AbstractController
             ->setPriority($dto->getPriorityAsEnum())
             ->setState(TaskState::OPEN);
 
-        if (null !== $dto->assigneeId) {
-            $assignee = $userRepository->find($dto->assigneeId);
+        if (null !== $dto->assignee) {
+            $assignee = $userRepository->find($dto->assignee);
             if (!$assignee instanceof User) {
                 return ApiErrorResponse::notFound('Utilisateur assigné introuvable.');
             }
