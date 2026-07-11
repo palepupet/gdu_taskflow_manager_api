@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Dto\Task;
 
 use App\Enum\TaskPriority;
+use App\Enum\TaskState;
 use Symfony\Component\Validator\Constraints as Assert;
 
 class UpdateTaskRequest
@@ -18,6 +19,8 @@ class UpdateTaskRequest
         public ?string $dueAt = null,
         #[Assert\Choice(callback: [TaskPriority::class, 'values'])]
         public ?string $priority = null,
+        #[Assert\Choice(callback: [TaskState::class, 'values'])]
+        public ?string $state = null,
         public ?int $assigneeId = null,
     ) {
     }
@@ -41,6 +44,7 @@ class UpdateTaskRequest
                 ? (\is_string($data['dueAt']) ? $data['dueAt'] : null)
                 : null,
             priority: isset($data['priority']) && \is_string($data['priority']) ? $data['priority'] : null,
+            state: isset($data['state']) && \is_string($data['state']) ? $data['state'] : null,
             assigneeId: $assigneeId,
         );
     }
@@ -59,5 +63,14 @@ class UpdateTaskRequest
         }
 
         return TaskPriority::from($this->priority);
+    }
+
+    public function getStateAsEnum(): ?TaskState
+    {
+        if (null === $this->state) {
+            return null;
+        }
+
+        return TaskState::from($this->state);
     }
 }

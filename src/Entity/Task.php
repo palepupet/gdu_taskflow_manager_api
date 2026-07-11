@@ -178,6 +178,34 @@ class Task
         return $project instanceof Project && $project->canBeModifiedBy($user);
     }
 
+    public function canChangeStateBy(User $user, TaskState $targetState): bool
+    {
+        $project = $this->project;
+        if (!$project instanceof Project || !$project->isEditable()) {
+            return false;
+        }
+
+        if ($user->isManager()) {
+            return true;
+        }
+
+        if ($project->isOwner($user)) {
+            return true;
+        }
+
+        $assignee = $this->assignee;
+        if ($assignee instanceof User && $assignee->getId() === $user->getId()) {
+            return TaskState::IN_PROGRESS !== $targetState;
+        }
+
+        return false;
+    }
+
+    public function canTransitionTo(TaskState $targetState): bool
+    {
+        return $this->state !== $targetState;
+    }
+
     #[ORM\PrePersist]
     public function onPrePersist(): void
     {

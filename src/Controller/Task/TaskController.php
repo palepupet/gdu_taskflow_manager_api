@@ -101,7 +101,7 @@ class TaskController extends AbstractController
             return ApiErrorResponse::notFound('Tâche introuvable.');
         }
 
-        if (!$task->canBeModifiedBy($user)) {
+        if (!$task->isAccessibleBy($user)) {
             throw $this->createAccessDeniedException();
         }
 
@@ -113,6 +113,17 @@ class TaskController extends AbstractController
         $dto = $this->requestPayloadParser->validate(UpdateTaskRequest::fromArray($data));
         if ($dto instanceof JsonResponse) {
             return $dto;
+        }
+
+        /** @var UpdateTaskRequest $dto */
+        $shouldUpdateNonStateField = \is_string($dto->title)
+            || array_key_exists('description', $data)
+            || array_key_exists('dueAt', $data)
+            || null !== $dto->getPriorityAsEnum()
+            || array_key_exists('assigneeId', $data);
+
+        if ($shouldUpdateNonStateField && !$task->canBeModifiedBy($user)) {
+            throw $this->createAccessDeniedException();
         }
 
         /** @var UpdateTaskRequest $dto */
@@ -131,6 +142,19 @@ class TaskController extends AbstractController
         $priority = $dto->getPriorityAsEnum();
         if (null !== $priority) {
             $task->setPriority($priority);
+        }
+
+        $newState = $dto->getStateAsEnum();
+        if (null !== $newState && array_key_exists('state', $data)) {
+            if (!$task->canTransitionTo($newState)) {
+                return ApiErrorResponse::badRequest('Transition d\'état invalide.');
+            }
+
+            if (!$task->canChangeStateBy($user, $newState)) {
+                throw $this->createAccessDeniedException();
+            }
+
+            $task->setState($newState);
         }
 
         if (array_key_exists('assigneeId', $data) && null === $data['assigneeId']) {

@@ -307,4 +307,137 @@ class TaskControllerTest extends ApiTestCase
         $this->deleteTaskById($taskId, $managerToken);
         self::assertResponseStatusCodeSame(Response::HTTP_NO_CONTENT);
     }
+
+    public function testOwnerCanChangeTaskStateToInProgress(): void
+    {
+        $this->createUser('owner@taskflow.fr');
+        $ownerToken = $this->loginAndGetToken('owner@taskflow.fr', 'TaskFlowUser123');
+
+        $this->postProject(['title' => 'Projet', 'description' => 'Test'], $ownerToken);
+        $projectId = $this->extractIntId($this->getJsonResponse());
+
+        $this->postProjectTask($projectId, ['title' => 'Ma tâche'], $ownerToken);
+        $taskId = $this->extractIntId($this->getJsonResponse());
+
+        $this->updateTaskById($taskId, ['state' => TaskState::IN_PROGRESS->value], $ownerToken);
+        self::assertResponseIsSuccessful();
+
+        $data = $this->getJsonResponse();
+        self::assertSame(TaskState::IN_PROGRESS->value, $data['state']);
+    }
+
+    public function testAssigneeCanCloseTask(): void
+    {
+        $this->createUser('owner@taskflow.fr');
+        $this->createUser('assignee@taskflow.fr');
+
+        $ownerToken = $this->loginAndGetToken('owner@taskflow.fr', 'TaskFlowUser123');
+        $this->postProject(['title' => 'Projet', 'description' => 'Test'], $ownerToken);
+        $projectId = $this->extractIntId($this->getJsonResponse());
+
+        $assignee = $this->entityManager->getRepository(User::class)->findOneBy(['email' => 'assignee@taskflow.fr']);
+        self::assertNotNull($assignee);
+
+        $assigneeId = $assignee->getId();
+        self::assertNotNull($assigneeId);
+
+        $this->postProjectTask($projectId, [
+            'title' => 'Tâche assignée',
+            'assigneeId' => $assigneeId,
+        ], $ownerToken);
+        $taskId = $this->extractIntId($this->getJsonResponse());
+
+        $assigneeToken = $this->loginAndGetToken('assignee@taskflow.fr', 'TaskFlowUser123');
+        $this->updateTaskById($taskId, ['state' => TaskState::CLOSED->value], $assigneeToken);
+        self::assertResponseIsSuccessful();
+
+        $data = $this->getJsonResponse();
+        self::assertSame(TaskState::CLOSED->value, $data['state']);
+    }
+
+    public function testAssigneeCanReopenClosedTask(): void
+    {
+        $this->createUser('owner@taskflow.fr');
+        $this->createUser('assignee@taskflow.fr');
+
+        $ownerToken = $this->loginAndGetToken('owner@taskflow.fr', 'TaskFlowUser123');
+        $this->postProject(['title' => 'Projet', 'description' => 'Test'], $ownerToken);
+        $projectId = $this->extractIntId($this->getJsonResponse());
+
+        $assignee = $this->entityManager->getRepository(User::class)->findOneBy(['email' => 'assignee@taskflow.fr']);
+        self::assertNotNull($assignee);
+
+        $assigneeId = $assignee->getId();
+        self::assertNotNull($assigneeId);
+
+        $this->postProjectTask($projectId, [
+            'title' => 'Tâche assignée',
+            'assigneeId' => $assigneeId,
+        ], $ownerToken);
+        $taskId = $this->extractIntId($this->getJsonResponse());
+
+        $this->updateTaskById($taskId, ['state' => TaskState::CLOSED->value], $ownerToken);
+        self::assertResponseIsSuccessful();
+
+        $assigneeToken = $this->loginAndGetToken('assignee@taskflow.fr', 'TaskFlowUser123');
+        $this->updateTaskById($taskId, ['state' => TaskState::OPEN->value], $assigneeToken);
+        self::assertResponseIsSuccessful();
+
+        $data = $this->getJsonResponse();
+        self::assertSame(TaskState::OPEN->value, $data['state']);
+    }
+
+    public function testAssigneeCannotChangeTaskStateToInProgress(): void
+    {
+        $this->createUser('owner@taskflow.fr');
+        $this->createUser('assignee@taskflow.fr');
+
+        $ownerToken = $this->loginAndGetToken('owner@taskflow.fr', 'TaskFlowUser123');
+        $this->postProject(['title' => 'Projet', 'description' => 'Test'], $ownerToken);
+        $projectId = $this->extractIntId($this->getJsonResponse());
+
+        $assignee = $this->entityManager->getRepository(User::class)->findOneBy(['email' => 'assignee@taskflow.fr']);
+        self::assertNotNull($assignee);
+
+        $assigneeId = $assignee->getId();
+        self::assertNotNull($assigneeId);
+
+        $this->postProjectTask($projectId, [
+            'title' => 'Tâche assignée',
+            'assigneeId' => $assigneeId,
+        ], $ownerToken);
+        $taskId = $this->extractIntId($this->getJsonResponse());
+
+        $assigneeToken = $this->loginAndGetToken('assignee@taskflow.fr', 'TaskFlowUser123');
+        $this->updateTaskById($taskId, ['state' => TaskState::IN_PROGRESS->value], $assigneeToken);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
+    }
+
+    public function testAssigneeCannotUpdateTaskTitle(): void
+    {
+        $this->createUser('owner@taskflow.fr');
+        $this->createUser('assignee@taskflow.fr');
+
+        $ownerToken = $this->loginAndGetToken('owner@taskflow.fr', 'TaskFlowUser123');
+        $this->postProject(['title' => 'Projet', 'description' => 'Test'], $ownerToken);
+        $projectId = $this->extractIntId($this->getJsonResponse());
+
+        $assignee = $this->entityManager->getRepository(User::class)->findOneBy(['email' => 'assignee@taskflow.fr']);
+        self::assertNotNull($assignee);
+
+        $assigneeId = $assignee->getId();
+        self::assertNotNull($assigneeId);
+
+        $this->postProjectTask($projectId, [
+            'title' => 'Tâche assignée',
+            'assigneeId' => $assigneeId,
+        ], $ownerToken);
+        $taskId = $this->extractIntId($this->getJsonResponse());
+
+        $assigneeToken = $this->loginAndGetToken('assignee@taskflow.fr', 'TaskFlowUser123');
+        $this->updateTaskById($taskId, ['title' => 'Hack'], $assigneeToken);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
+    }
 }
