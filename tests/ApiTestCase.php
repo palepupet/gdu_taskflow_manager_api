@@ -297,6 +297,11 @@ abstract class ApiTestCase extends WebTestCase
         $this->requestJson('PATCH', '/task/'.$id, $payload, $token);
     }
 
+    protected function deleteTaskById(int $id, ?string $token = null): void
+    {
+        $this->requestJson('DELETE', '/task/'.$id, null, $token);
+    }
+
     private function resetDatabase(): void
     {
         $metadata = $this->entityManager->getMetadataFactory()->getAllMetadata();

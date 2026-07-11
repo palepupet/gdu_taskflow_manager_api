@@ -11,6 +11,9 @@ use App\Enum\TaskState;
 use App\Tests\ApiTestCase;
 use Symfony\Component\HttpFoundation\Response;
 
+/**
+ * @SuppressWarnings("PHPMD.TooManyPublicMethods")
+ */
 class TaskControllerTest extends ApiTestCase
 {
     public function testOwnerCanCreateTask(): void
@@ -247,5 +250,61 @@ class TaskControllerTest extends ApiTestCase
         $memberToken = $this->loginAndGetToken('member@taskflow.fr', 'TaskFlowUser123');
         $this->updateTaskById($taskId, ['title' => 'Hack'], $memberToken);
         self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
+    }
+
+    public function testOwnerCanDeleteTask(): void
+    {
+        $this->createUser('owner@taskflow.fr');
+        $ownerToken = $this->loginAndGetToken('owner@taskflow.fr', 'TaskFlowUser123');
+
+        $this->postProject(['title' => 'Projet', 'description' => 'Test'], $ownerToken);
+        $projectId = $this->extractIntId($this->getJsonResponse());
+
+        $this->postProjectTask($projectId, ['title' => 'À supprimer'], $ownerToken);
+        $taskId = $this->extractIntId($this->getJsonResponse());
+
+        $this->deleteTaskById($taskId, $ownerToken);
+        self::assertResponseStatusCodeSame(Response::HTTP_NO_CONTENT);
+
+        $this->getTaskById($taskId, $ownerToken);
+        self::assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND);
+    }
+
+    public function testMemberCannotDeleteTask(): void
+    {
+        $this->createUser('owner@taskflow.fr');
+        $this->createUser('member@taskflow.fr');
+
+        $ownerToken = $this->loginAndGetToken('owner@taskflow.fr', 'TaskFlowUser123');
+        $this->postProject(['title' => 'Projet', 'description' => 'Test'], $ownerToken);
+        $projectId = $this->extractIntId($this->getJsonResponse());
+
+        $this->postProjectTask($projectId, ['title' => 'Tâche'], $ownerToken);
+        $taskId = $this->extractIntId($this->getJsonResponse());
+
+        $project = $this->entityManager->getRepository(Project::class)->find($projectId);
+        self::assertNotNull($project);
+        $this->addMemberToProjectByEmail($project, 'member@taskflow.fr');
+
+        $memberToken = $this->loginAndGetToken('member@taskflow.fr', 'TaskFlowUser123');
+        $this->deleteTaskById($taskId, $memberToken);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
+    }
+
+    public function testManagerCanDeleteTask(): void
+    {
+        $this->createUser('owner@taskflow.fr');
+        $managerToken = $this->loginAsManager();
+
+        $ownerToken = $this->loginAndGetToken('owner@taskflow.fr', 'TaskFlowUser123');
+        $this->postProject(['title' => 'Projet', 'description' => 'Test'], $ownerToken);
+        $projectId = $this->extractIntId($this->getJsonResponse());
+
+        $this->postProjectTask($projectId, ['title' => 'Tâche manager'], $ownerToken);
+        $taskId = $this->extractIntId($this->getJsonResponse());
+
+        $this->deleteTaskById($taskId, $managerToken);
+        self::assertResponseStatusCodeSame(Response::HTTP_NO_CONTENT);
     }
 }

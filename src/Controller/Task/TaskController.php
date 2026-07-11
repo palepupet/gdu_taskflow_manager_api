@@ -223,4 +223,27 @@ class TaskController extends AbstractController
 
         return new JsonResponse(TaskResponse::fromTask($task)->toArray(), Response::HTTP_CREATED);
     }
+
+    #[Route('/task/{id}', name: 'task_delete', requirements: ['id' => '\d+'], methods: ['DELETE'])]
+    public function delete(
+        int $id,
+        TaskRepositoryInterface $taskRepository,
+        EntityManagerInterface $entityManager,
+    ): JsonResponse {
+        $user = $this->getCurrentUser();
+
+        $task = $taskRepository->findById($id);
+        if (!$task instanceof Task) {
+            return ApiErrorResponse::notFound('Tâche introuvable.');
+        }
+
+        if (!$task->canBeModifiedBy($user)) {
+            throw $this->createAccessDeniedException();
+        }
+
+        $entityManager->remove($task);
+        $entityManager->flush();
+
+        return new JsonResponse(null, Response::HTTP_NO_CONTENT);
+    }
 }
