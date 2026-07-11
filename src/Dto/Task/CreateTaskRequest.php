@@ -18,7 +18,7 @@ class CreateTaskRequest
         public ?string $dueAt = null,
         #[Assert\Choice(callback: [TaskPriority::class, 'values'])]
         public ?string $priority = null,
-        public ?int $assigneeId = null,
+        public ?int $assignee = null,
     ) {
     }
 
@@ -27,9 +27,9 @@ class CreateTaskRequest
      */
     public static function fromArray(array $data): self
     {
-        $assigneeId = null;
-        if (isset($data['assigneeId']) && is_numeric($data['assigneeId'])) {
-            $assigneeId = (int) $data['assigneeId'];
+        $assignee = null;
+        if (isset($data['assignee']) && is_numeric($data['assignee'])) {
+            $assignee = (int) $data['assignee'];
         }
 
         return new self(
@@ -37,7 +37,7 @@ class CreateTaskRequest
             description: isset($data['description']) && \is_string($data['description']) ? $data['description'] : null,
             dueAt: isset($data['dueAt']) && \is_string($data['dueAt']) ? $data['dueAt'] : null,
             priority: isset($data['priority']) && \is_string($data['priority']) ? $data['priority'] : null,
-            assigneeId: $assigneeId,
+            assignee: $assignee,
         );
     }
 

@@ -136,7 +136,7 @@ class TaskControllerTest extends ApiTestCase
 
         $this->postProjectTask($projectId, [
             'title' => 'Tâche assignée',
-            'assigneeId' => $assignee->getId(),
+            'assignee' => $assignee->getId(),
         ], $ownerToken);
         self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
 
@@ -343,7 +343,7 @@ class TaskControllerTest extends ApiTestCase
 
         $this->postProjectTask($projectId, [
             'title' => 'Tâche assignée',
-            'assigneeId' => $assigneeId,
+            'assignee' => $assigneeId,
         ], $ownerToken);
         $taskId = $this->extractIntId($this->getJsonResponse());
 
@@ -372,7 +372,7 @@ class TaskControllerTest extends ApiTestCase
 
         $this->postProjectTask($projectId, [
             'title' => 'Tâche assignée',
-            'assigneeId' => $assigneeId,
+            'assignee' => $assigneeId,
         ], $ownerToken);
         $taskId = $this->extractIntId($this->getJsonResponse());
 
@@ -404,7 +404,7 @@ class TaskControllerTest extends ApiTestCase
 
         $this->postProjectTask($projectId, [
             'title' => 'Tâche assignée',
-            'assigneeId' => $assigneeId,
+            'assignee' => $assigneeId,
         ], $ownerToken);
         $taskId = $this->extractIntId($this->getJsonResponse());
 
@@ -431,7 +431,7 @@ class TaskControllerTest extends ApiTestCase
 
         $this->postProjectTask($projectId, [
             'title' => 'Tâche assignée',
-            'assigneeId' => $assigneeId,
+            'assignee' => $assigneeId,
         ], $ownerToken);
         $taskId = $this->extractIntId($this->getJsonResponse());
 
