@@ -24,7 +24,7 @@ class AuthControllerTest extends ApiTestCase
             server: ['CONTENT_TYPE' => 'application/json'],
             content: json_encode(
                 [
-                    'email' => 'manager@taskflow.fr',
+                    'email' => self::EMAIL_MANAGER,
                     'password' => 'WrongPassword',
                 ],
                 JSON_THROW_ON_ERROR

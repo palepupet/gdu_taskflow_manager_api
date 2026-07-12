@@ -6,15 +6,27 @@ namespace App\Tests;
 
 use App\Entity\Project;
 use App\Entity\User;
+use App\Enum\ProjectStatus;
 use App\Enum\UserRole;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Tools\SchemaTool;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 abstract class ApiTestCase extends WebTestCase
 {
+    protected const EMAIL_USER = 'user@taskflow.fr';
+    protected const EMAIL_OWNER = 'owner@taskflow.fr';
+    protected const EMAIL_MEMBER = 'member@taskflow.fr';
+    protected const EMAIL_MANAGER = 'manager@taskflow.fr';
+    protected const EMAIL_OTHER = 'other@taskflow.fr';
+    protected const EMAIL_ASSIGNEE = 'assignee@taskflow.fr';
+
+    protected const PASSWORD_USER = 'TaskFlowUser123';
+    protected const PASSWORD_MANAGER = 'TaskFlowManager123';
+
     protected KernelBrowser $client;
     protected EntityManagerInterface $entityManager;
 
@@ -51,7 +63,7 @@ abstract class ApiTestCase extends WebTestCase
         $this->client->request($method, $uri, server: $server, content: $content);
     }
 
-    protected function createManager(string $email = 'manager@taskflow.fr', string $password = 'TaskFlowManager123'): User
+    protected function createManager(string $email = self::EMAIL_MANAGER, string $password = self::PASSWORD_MANAGER): User
     {
         $passwordHasher = static::getContainer()->get(UserPasswordHasherInterface::class);
 
@@ -92,12 +104,12 @@ abstract class ApiTestCase extends WebTestCase
     {
         $this->createManager();
 
-        return $this->loginAndGetToken('manager@taskflow.fr', 'TaskFlowManager123');
+        return $this->loginAndGetToken(self::EMAIL_MANAGER, self::PASSWORD_MANAGER);
     }
 
-    protected function loginAsUser(string $email = 'user@taskflow.fr'): string
+    protected function loginAsUser(string $email = self::EMAIL_USER): string
     {
-        return $this->loginAndGetToken($email, 'TaskFlowUser123');
+        return $this->loginAndGetToken($email, self::PASSWORD_USER);
     }
 
     protected function getMe(?string $token = null): void
@@ -105,7 +117,7 @@ abstract class ApiTestCase extends WebTestCase
         $this->requestJson('GET', '/me', null, $token);
     }
 
-    protected function createInactiveUser(string $email = 'manager@taskflow.fr'): User
+    protected function createInactiveUser(string $email = self::EMAIL_MANAGER): User
     {
         $user = $this->createManager($email, 'InactiveManager123');
         $user->setIsActive(false);
@@ -116,8 +128,8 @@ abstract class ApiTestCase extends WebTestCase
     }
 
     protected function createUser(
-        string $email = 'user@taskflow.fr',
-        string $password = 'TaskFlowUser123',
+        string $email = self::EMAIL_USER,
+        string $password = self::PASSWORD_USER,
     ): User {
         $passwordHasher = static::getContainer()->get(UserPasswordHasherInterface::class);
 
@@ -300,6 +312,90 @@ abstract class ApiTestCase extends WebTestCase
     protected function deleteTaskById(int $id, ?string $token = null): void
     {
         $this->requestJson('DELETE', '/task/'.$id, null, $token);
+    }
+
+    /**
+     * @param array<string, mixed>|null $payload
+     *
+     * @return array{projectId: int, token: string}
+     */
+    protected function createProjectAs(string $email = self::EMAIL_OWNER, ?array $payload = null): array
+    {
+        $user = $this->entityManager->getRepository(User::class)->findOneBy(['email' => $email]);
+        if (!$user instanceof User) {
+            $this->createUser($email);
+        }
+
+        $token = $this->loginAndGetToken($email, self::PASSWORD_USER);
+        $payload ??= ['title' => 'Projet', 'description' => 'Test'];
+
+        $this->postProject($payload, $token);
+        self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
+
+        return [
+            'projectId' => $this->extractIntId($this->getJsonResponse()),
+            'token' => $token,
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    protected function addTaskToProject(int $projectId, array $payload, string $token): int
+    {
+        $this->postProjectTask($projectId, $payload, $token);
+        self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
+
+        return $this->extractIntId($this->getJsonResponse());
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    protected function addAssignedTaskToProject(
+        int $projectId,
+        string $ownerToken,
+        string $assigneeEmail,
+        array $payload,
+    ): int {
+        $assignee = $this->entityManager->getRepository(User::class)->findOneBy(['email' => $assigneeEmail]);
+        if (!$assignee instanceof User) {
+            $this->createUser($assigneeEmail);
+            $assignee = $this->entityManager->getRepository(User::class)->findOneBy(['email' => $assigneeEmail]);
+        }
+
+        self::assertNotNull($assignee);
+
+        $assigneeId = $assignee->getId();
+        self::assertNotNull($assigneeId);
+
+        $payload['assignee'] = $assigneeId;
+
+        return $this->addTaskToProject($projectId, $payload, $ownerToken);
+    }
+
+    protected function addMemberToProject(int $projectId, string $email = self::EMAIL_MEMBER): string
+    {
+        $user = $this->entityManager->getRepository(User::class)->findOneBy(['email' => $email]);
+        if (!$user instanceof User) {
+            $this->createUser($email);
+        }
+
+        $project = $this->entityManager->getRepository(Project::class)->find($projectId);
+        self::assertNotNull($project);
+
+        $this->addMemberToProjectByEmail($project, $email);
+
+        return $this->loginAndGetToken($email, self::PASSWORD_USER);
+    }
+
+    protected function archiveProject(int $projectId, string $token): void
+    {
+        $this->updateProjectById($projectId, ['status' => ProjectStatus::COMPLETED->value], $token);
+        self::assertResponseIsSuccessful();
+
+        $data = $this->getJsonResponse();
+        self::assertTrue($data['isArchived']);
     }
 
     private function resetDatabase(): void

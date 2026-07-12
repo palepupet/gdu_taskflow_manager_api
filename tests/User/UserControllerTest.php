@@ -21,7 +21,7 @@ class UserControllerTest extends ApiTestCase
         self::assertResponseIsSuccessful();
 
         $data = $this->getJsonResponse();
-        self::assertSame('manager@taskflow.fr', $data['email']);
+        self::assertSame(self::EMAIL_MANAGER, $data['email']);
     }
 
     public function testGetMeWithInvalidTokenShouldReturn401(): void
@@ -89,8 +89,8 @@ class UserControllerTest extends ApiTestCase
         self::assertCount(2, $data);
 
         $emails = array_column($data, 'email');
-        self::assertContains('manager@taskflow.fr', $emails);
-        self::assertContains('user@taskflow.fr', $emails);
+        self::assertContains(self::EMAIL_MANAGER, $emails);
+        self::assertContains(self::EMAIL_USER, $emails);
 
         foreach ($data as $user) {
             self::assertIsArray($user);
@@ -122,7 +122,7 @@ class UserControllerTest extends ApiTestCase
 
         $data = $this->getJsonResponse();
         self::assertSame($userId, $data['id']);
-        self::assertSame('user@taskflow.fr', $data['email']);
+        self::assertSame(self::EMAIL_USER, $data['email']);
         self::assertArrayNotHasKey('password', $data);
     }
 
@@ -157,7 +157,7 @@ class UserControllerTest extends ApiTestCase
 
     public function testUserCannotUpdateAnotherUser(): void
     {
-        $userToDeactivate = $this->createUser('other@taskflow.fr');
+        $userToDeactivate = $this->createUser(self::EMAIL_OTHER);
         $this->createUser();
         $token = $this->loginAsUser();
 
@@ -185,7 +185,7 @@ class UserControllerTest extends ApiTestCase
 
     public function testUserCannotDeleteUser(): void
     {
-        $userToDeactivate = $this->createUser('other@taskflow.fr');
+        $userToDeactivate = $this->createUser(self::EMAIL_OTHER);
         $this->createUser();
         $token = $this->loginAsUser();
 
