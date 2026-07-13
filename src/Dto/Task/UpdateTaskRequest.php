@@ -15,7 +15,7 @@ class UpdateTaskRequest
         #[Assert\Length(max: 100)]
         public ?string $title = null,
         public ?string $description = null,
-        #[Assert\DateTime(message: 'La date d\'échéance n\'est pas valide.')]
+        #[Assert\Date(message: 'La date d\'échéance n\'est pas valide.')]
         public ?string $dueAt = null,
         #[Assert\Choice(callback: [TaskPriority::class, 'values'])]
         public ?string $priority = null,

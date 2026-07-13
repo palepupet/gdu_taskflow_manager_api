@@ -52,7 +52,7 @@ class TaskResponse
             id: $id,
             title: (string) $task->getTitle(),
             description: $task->getDescription(),
-            dueAt: $task->getDueAt()?->format(\DateTimeInterface::ATOM),
+            dueAt: $task->getDueAt()?->format('Y-m-d'),
             priority: $task->getPriority()->value,
             state: $task->getState()->value,
             projectId: $projectId,
