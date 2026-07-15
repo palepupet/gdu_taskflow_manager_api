@@ -409,6 +409,11 @@ abstract class ApiTestCase extends WebTestCase
         $this->requestJson('POST', '/project/'.$projectId.'/tags', $payload, $token);
     }
 
+    protected function getProjectTags(int $projectId, ?string $token = null): void
+    {
+        $this->requestJson('GET', '/project/'.$projectId.'/tags', null, $token);
+    }
+
     private function resetDatabase(): void
     {
         $metadata = $this->entityManager->getMetadataFactory()->getAllMetadata();

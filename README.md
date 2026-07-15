@@ -249,13 +249,35 @@ Authorization: Bearer <jwt>
 
 ### Tags
 
-| Méthode | Route                   | Auth | Description                                      |
-|---------|-------------------------|------|--------------------------------------------------|
-| `POST`  | `/project/{id}/tags`    | JWT  | Créer un tag (owner ou manager, projet actif)    |
+| Méthode | Route                | Auth | Description                                         |
+|---------|----------------------|------|-----------------------------------------------------|
+| `GET`   | `/project/{id}/tags` | JWT  | Liste des tags du projet (owner, membre ou manager) |
+| `POST`  | `/project/{id}/tags` | JWT  | Créer un tag (owner ou manager, projet actif)       |
 
-Les tags d'un projet sont inclus dans la réponse de `GET /project/{id}`.
+Les tags d'un projet sont aussi inclus dans la réponse de `GET /project/{id}`.
 
 #### Corps JSON utiles (tags)
+
+**Liste** (`GET /project/{id}/tags`) :
+
+```json
+[
+  {
+    "id": 2,
+    "label": "backend",
+    "projectId": 3,
+    "createdAt": "2026-07-14T20:49:28+00:00"
+  },
+  {
+    "id": 1,
+    "label": "urgent",
+    "projectId": 3,
+    "createdAt": "2026-07-14T20:50:01+00:00"
+  }
+]
+```
+
+- Accessible en lecture pour le owner, un membre ou un manager (projet archivé inclus).
 
 **Création** (`POST /project/{id}/tags`) :
 
