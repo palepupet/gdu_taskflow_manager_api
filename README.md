@@ -254,6 +254,7 @@ Authorization: Bearer <jwt>
 | `GET`    | `/project/{id}/tags` | JWT  | Liste des tags du projet (owner, membre ou manager) |
 | `POST`   | `/project/{id}/tags` | JWT  | Créer un tag (owner ou manager, projet actif)       |
 | `PATCH`  | `/tag/{id}`          | JWT  | Renommer un tag (owner ou manager, projet actif)    |
+| `DELETE` | `/tag/{id}`          | JWT  | Supprimer un tag (owner ou manager, projet actif)   |
 
 Les tags d'un projet sont aussi inclus dans la réponse de `GET /project/{id}`.
 
@@ -321,6 +322,13 @@ Réponse:
 - Seuls le owner du projet ou un manager peuvent renommer un tag.
 - Projet archivé => erreur.
 - Libellé déjà utilisé sur le même projet => `TAG_ALREADY_EXISTS`.
+
+**Suppression** (`DELETE /tag/{id}`) :
+
+- Réponse (corps vide).
+- Seuls le owner du projet ou un manager peuvent supprimer un tag, membre => erreur.
+- Projet archivé => erreur.
+- Tag introuvable => erreur.
 
 ---
 

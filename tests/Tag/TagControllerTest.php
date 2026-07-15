@@ -154,4 +154,51 @@ class TagControllerTest extends ApiTestCase
         $this->updateTagById($tagId, ['label' => 'trop tard'], $token);
         self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
     }
+
+    public function testOwnerCanDeleteTag(): void
+    {
+        ['projectId' => $projectId, 'token' => $token] = $this->createProjectAs();
+
+        $this->postProjectTag($projectId, ['label' => 'à supprimer'], $token);
+        $tagId = $this->extractIntId($this->getJsonResponse());
+
+        $this->deleteTagById($tagId, $token);
+        self::assertResponseStatusCodeSame(Response::HTTP_NO_CONTENT);
+
+        $this->getProjectTags($projectId, $token);
+        self::assertResponseIsSuccessful();
+        self::assertCount(0, $this->getJsonResponse());
+    }
+
+    public function testMemberCannotDeleteTag(): void
+    {
+        ['projectId' => $projectId, 'token' => $token] = $this->createProjectAs();
+        $this->postProjectTag($projectId, ['label' => 'ops'], $token);
+        $tagId = $this->extractIntId($this->getJsonResponse());
+
+        $memberToken = $this->addMemberToProject($projectId);
+
+        $this->deleteTagById($tagId, $memberToken);
+        self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
+    }
+
+    public function testCannotDeleteTagOnArchivedProject(): void
+    {
+        ['projectId' => $projectId, 'token' => $token] = $this->createProjectAs();
+        $this->postProjectTag($projectId, ['label' => 'legacy'], $token);
+        $tagId = $this->extractIntId($this->getJsonResponse());
+
+        $this->archiveProject($projectId, $token);
+
+        $this->deleteTagById($tagId, $token);
+        self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
+    }
+
+    public function testCannotDeleteUnknownTag(): void
+    {
+        ['token' => $token] = $this->createProjectAs();
+
+        $this->deleteTagById(99999, $token);
+        self::assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND);
+    }
 }

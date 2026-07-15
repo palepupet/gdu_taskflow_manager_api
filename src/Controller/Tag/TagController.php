@@ -182,4 +182,32 @@ class TagController extends AbstractController
 
         return new JsonResponse(TagResponse::fromTag($tag)->toArray());
     }
+
+    #[Route('/tag/{id}', name: 'tag_delete', requirements: ['id' => '\d+'], methods: ['DELETE'])]
+    public function delete(
+        int $id,
+        TagRepositoryInterface $tagRepository,
+        EntityManagerInterface $entityManager,
+    ): JsonResponse {
+        $user = $this->getCurrentUser();
+
+        $tag = $tagRepository->findById($id);
+        if (!$tag instanceof Tag) {
+            return ApiErrorResponse::notFound('Tag introuvable.');
+        }
+
+        $project = $tag->getProject();
+        if (!$project instanceof Project) {
+            return ApiErrorResponse::notFound('Projet introuvable.');
+        }
+
+        if (!$project->canDeleteTagBy($user)) {
+            throw $this->createAccessDeniedException();
+        }
+
+        $entityManager->remove($tag);
+        $entityManager->flush();
+
+        return new JsonResponse(null, Response::HTTP_NO_CONTENT);
+    }
 }
