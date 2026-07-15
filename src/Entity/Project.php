@@ -16,6 +16,7 @@ use Symfony\Component\Validator\Context\ExecutionContextInterface;
 /**
  * @SuppressWarnings("PHPMD.ExcessiveClassComplexity")
  * @SuppressWarnings("PHPMD.TooManyPublicMethods")
+ * @SuppressWarnings("PHPMD.ExcessivePublicCount")
  */
 #[ORM\Entity(repositoryClass: ProjectRepository::class)]
 #[ORM\HasLifecycleCallbacks]
@@ -73,10 +74,18 @@ class Project
     #[ORM\OrderBy(['id' => 'DESC'])]
     private Collection $tasks;
 
+    /**
+     * @var Collection<int, Tag>
+     */
+    #[ORM\OneToMany(targetEntity: Tag::class, mappedBy: 'project', cascade: ['persist'], orphanRemoval: true)]
+    #[ORM\OrderBy(['label' => 'ASC'])]
+    private Collection $tags;
+
     public function __construct()
     {
         $this->members = new ArrayCollection();
         $this->tasks = new ArrayCollection();
+        $this->tags = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -388,5 +397,39 @@ class Project
         }
 
         $this->addMember($user);
+    }
+
+    /**
+     * @return Collection<int, Tag>
+     */
+    public function getTags(): Collection
+    {
+        return $this->tags;
+    }
+
+    public function addTag(Tag $tag): static
+    {
+        if (!$this->tags->contains($tag)) {
+            $this->tags->add($tag);
+            $tag->setProject($this);
+        }
+
+        return $this;
+    }
+
+    public function removeTag(Tag $tag): static
+    {
+        if ($this->tags->removeElement($tag)) {
+            if ($tag->getProject() === $this) {
+                $tag->setProject(null);
+            }
+        }
+
+        return $this;
+    }
+
+    public function canCreateTagBy(User $user): bool
+    {
+        return $this->canBeModifiedBy($user);
     }
 }

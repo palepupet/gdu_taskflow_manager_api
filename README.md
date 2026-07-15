@@ -2,7 +2,7 @@
 
 API REST pour la société fictive **TaskFlow**, application de gestion de projets et de tâches.
 
-**Authentification JWT, gestion des utilisateurs, projets (statuts, archivage, membres) et tâches (CRUD, assignation, transitions d'état).**
+**Authentification JWT, gestion des utilisateurs, projets (statuts, archivage, membres), tâches (CRUD, assignation, transitions d'état) et tags (libellés par projet).**
 
 ## Stack technique
 
@@ -201,7 +201,7 @@ Authorization: Bearer <jwt>
 | Méthode  | Route                   | Auth | Description                                    |
 |----------|-------------------------|------|------------------------------------------------|
 | `GET`    | `/projects`             | JWT  | Liste des projets accessibles (manager : tous) |
-| `GET`    | `/project/{id}`         | JWT  | Détail d'un projet                             |
+| `GET`    | `/project/{id}`         | JWT  | Détail d'un projet (tâches, tags, membres…)    |
 | `POST`   | `/project`              | JWT  | Créer un projet (le créateur devient owner)    |
 | `PATCH`  | `/project/{id}`         | JWT  | Modifier un projet (owner ou manager)          |
 | `POST`   | `/project/{id}/members` | JWT  | Ajouter des membres (owner ou manager)         |
@@ -246,6 +246,35 @@ Authorization: Bearer <jwt>
 - `dueAt` au format `YYYY-MM-DD` (entrée et sortie), comme `startAt` / `endAt` sur les projets.
 - `assignee` (entier) à l'entrée, objet utilisateur ou `null` en sortie.
 - Assigner un utilisateur à une tâche, l'ajoute automatiquement comme membre du projet s'il ne l'est pas encore.
+
+### Tags
+
+| Méthode | Route                   | Auth | Description                                      |
+|---------|-------------------------|------|--------------------------------------------------|
+| `POST`  | `/project/{id}/tags`    | JWT  | Créer un tag (owner ou manager, projet actif)    |
+
+Les tags d'un projet sont inclus dans la réponse de `GET /project/{id}`.
+
+#### Corps JSON utiles (tags)
+
+**Création** (`POST /project/{id}/tags`) :
+
+```json
+{
+  "label": "urgent"
+}
+```
+
+Réponse:
+
+```json
+{
+  "id": 1,
+  "label": "urgent",
+  "projectId": 3,
+  "createdAt": "2026-07-14T20:49:28+00:00"
+}
+```
 
 ---
 

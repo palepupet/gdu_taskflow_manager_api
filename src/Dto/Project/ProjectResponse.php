@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Dto\Project;
 
+use App\Dto\Tag\TagResponse;
 use App\Dto\Task\TaskResponse;
 use App\Dto\User\UserSummaryResponse;
 use App\Entity\Project;
@@ -16,6 +17,7 @@ class ProjectResponse
      *
      * @param list<UserSummaryResponse> $members
      * @param list<TaskResponse>        $tasks
+     * @param list<TagResponse>         $tags
      */
     public function __construct(
         public int $id,
@@ -25,6 +27,7 @@ class ProjectResponse
         public UserSummaryResponse $owner,
         public array $members,
         public array $tasks,
+        public array $tags,
         public bool $isArchived,
         public ?string $createdAt,
         public ?string $startAt,
@@ -44,6 +47,11 @@ class ProjectResponse
             $tasks[] = TaskResponse::fromTask($task);
         }
 
+        $tags = [];
+        foreach ($project->getTags() as $tag) {
+            $tags[] = TagResponse::fromTag($tag);
+        }
+
         if (null === $id || !$owner instanceof User) {
             throw new \LogicException('Un projet persisté doit avoir un id et un owner.');
         }
@@ -61,6 +69,7 @@ class ProjectResponse
             owner: UserSummaryResponse::fromUser($owner),
             members: $members,
             tasks: $tasks,
+            tags: $tags,
             isArchived: (bool) $project->isArchived(),
             createdAt: $project->getCreatedAt()?->format(\DateTimeInterface::ATOM),
             startAt: $project->getStartAt()?->format('Y-m-d'),
@@ -80,6 +89,11 @@ class ProjectResponse
             $this->tasks,
         );
 
+        $tags = array_map(
+            static fn (TagResponse $tag): array => $tag->toArray(),
+            $this->tags,
+        );
+
         return [
             'id' => $this->id,
             'title' => $this->title,
@@ -91,6 +105,7 @@ class ProjectResponse
                 $this->members,
             ),
             'tasks' => $tasks,
+            'tags' => $tags,
             'isArchived' => $this->isArchived,
             'createdAt' => $this->createdAt,
             'startAt' => $this->startAt,

@@ -15,6 +15,9 @@ use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
+/**
+ * @SuppressWarnings("PHPMD.TooManyMethods")
+ */
 abstract class ApiTestCase extends WebTestCase
 {
     protected const EMAIL_USER = 'user@taskflow.fr';
@@ -396,6 +399,14 @@ abstract class ApiTestCase extends WebTestCase
 
         $data = $this->getJsonResponse();
         self::assertTrue($data['isArchived']);
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    protected function postProjectTag(int $projectId, array $payload, ?string $token = null): void
+    {
+        $this->requestJson('POST', '/project/'.$projectId.'/tags', $payload, $token);
     }
 
     private function resetDatabase(): void
