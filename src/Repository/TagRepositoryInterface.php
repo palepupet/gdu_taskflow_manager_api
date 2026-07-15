@@ -15,5 +15,5 @@ interface TagRepositoryInterface
      */
     public function findByProjectId(int $projectId): array;
 
-    public function isTagAlreadyExistsWithThisLabel(string $label, int $projectId): bool;
+    public function isTagAlreadyExistsWithThisLabel(string $label, int $projectId, ?int $excludeTagId = null): bool;
 }

@@ -7,6 +7,9 @@ namespace App\Tests\Tag;
 use App\Tests\ApiTestCase;
 use Symfony\Component\HttpFoundation\Response;
 
+/**
+ * @SuppressWarnings("PHPMD.TooManyPublicMethods")
+ */
 class TagControllerTest extends ApiTestCase
 {
     public function testOwnerCanCreateTag(): void
@@ -98,5 +101,57 @@ class TagControllerTest extends ApiTestCase
 
         $this->getProjectTags($projectId, $token);
         self::assertResponseIsSuccessful();
+    }
+
+    public function testOwnerCanUpdateTag(): void
+    {
+        ['projectId' => $projectId, 'token' => $token] = $this->createProjectAs();
+
+        $this->postProjectTag($projectId, ['label' => 'urgent'], $token);
+        self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
+
+        $tagId = $this->extractIntId($this->getJsonResponse());
+
+        $this->updateTagById($tagId, ['label' => 'prioritaire'], $token);
+        self::assertResponseIsSuccessful();
+
+        $data = $this->getJsonResponse();
+        self::assertSame('prioritaire', $data['label']);
+        self::assertSame($tagId, $data['id']);
+    }
+
+    public function testMemberCannotUpdateTag(): void
+    {
+        ['projectId' => $projectId, 'token' => $token] = $this->createProjectAs();
+        $this->postProjectTag($projectId, ['label' => 'ops'], $token);
+        $tagId = $this->extractIntId($this->getJsonResponse());
+
+        $memberToken = $this->addMemberToProject($projectId);
+        $this->updateTagById($tagId, ['label' => 'interdit'], $memberToken);
+        self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
+    }
+
+    public function testCannotUpdateTagToDuplicateLabel(): void
+    {
+        ['projectId' => $projectId, 'token' => $token] = $this->createProjectAs();
+
+        $this->postProjectTag($projectId, ['label' => 'backend'], $token);
+        $this->postProjectTag($projectId, ['label' => 'frontend'], $token);
+        $tagId = $this->extractIntId($this->getJsonResponse());
+
+        $this->updateTagById($tagId, ['label' => 'backend'], $token);
+        self::assertResponseStatusCodeSame(Response::HTTP_CONFLICT);
+    }
+
+    public function testCannotUpdateTagOnArchivedProject(): void
+    {
+        ['projectId' => $projectId, 'token' => $token] = $this->createProjectAs();
+        $this->postProjectTag($projectId, ['label' => 'legacy'], $token);
+        $tagId = $this->extractIntId($this->getJsonResponse());
+
+        $this->archiveProject($projectId, $token);
+
+        $this->updateTagById($tagId, ['label' => 'trop tard'], $token);
+        self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
     }
 }

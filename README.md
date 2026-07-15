@@ -249,10 +249,11 @@ Authorization: Bearer <jwt>
 
 ### Tags
 
-| Méthode | Route                | Auth | Description                                         |
-|---------|----------------------|------|-----------------------------------------------------|
-| `GET`   | `/project/{id}/tags` | JWT  | Liste des tags du projet (owner, membre ou manager) |
-| `POST`  | `/project/{id}/tags` | JWT  | Créer un tag (owner ou manager, projet actif)       |
+| Méthode  | Route                | Auth | Description                                         |
+|----------|----------------------|------|-----------------------------------------------------|
+| `GET`    | `/project/{id}/tags` | JWT  | Liste des tags du projet (owner, membre ou manager) |
+| `POST`   | `/project/{id}/tags` | JWT  | Créer un tag (owner ou manager, projet actif)       |
+| `PATCH`  | `/tag/{id}`          | JWT  | Renommer un tag (owner ou manager, projet actif)    |
 
 Les tags d'un projet sont aussi inclus dans la réponse de `GET /project/{id}`.
 
@@ -297,6 +298,29 @@ Réponse:
   "createdAt": "2026-07-14T20:49:28+00:00"
 }
 ```
+
+**Modification** (`PATCH /tag/{id}`) :
+
+```json
+{
+  "label": "prioritaire"
+}
+```
+
+Réponse:
+
+```json
+{
+  "id": 1,
+  "label": "prioritaire",
+  "projectId": 3,
+  "createdAt": "2026-07-14T20:49:28+00:00"
+}
+```
+
+- Seuls le owner du projet ou un manager peuvent renommer un tag.
+- Projet archivé => erreur.
+- Libellé déjà utilisé sur le même projet => `TAG_ALREADY_EXISTS`.
 
 ---
 
