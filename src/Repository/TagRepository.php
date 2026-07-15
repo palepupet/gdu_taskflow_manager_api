@@ -39,14 +39,24 @@ class TagRepository extends ServiceEntityRepository implements TagRepositoryInte
         return $tags;
     }
 
-    public function isTagAlreadyExistsWithThisLabel(string $label, int $projectId): bool
-    {
-        return null !== $this->createQueryBuilder('tag')
+    public function isTagAlreadyExistsWithThisLabel(
+        string $label,
+        int $projectId,
+        ?int $excludeTagId = null,
+    ): bool {
+        $query = $this->createQueryBuilder('tag')
             ->select('1')
             ->andWhere('IDENTITY(tag.project) = :projectId')
             ->andWhere('tag.label = :label')
             ->setParameter('projectId', $projectId)
-            ->setParameter('label', $label)
+            ->setParameter('label', $label);
+
+        if (null !== $excludeTagId) {
+            $query->andWhere('tag.id != :excludeTagId')
+                ->setParameter('excludeTagId', $excludeTagId);
+        }
+
+        return null !== $query
             ->setMaxResults(1)
             ->getQuery()
             ->getOneOrNullResult();

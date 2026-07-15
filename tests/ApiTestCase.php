@@ -414,6 +414,14 @@ abstract class ApiTestCase extends WebTestCase
         $this->requestJson('GET', '/project/'.$projectId.'/tags', null, $token);
     }
 
+    /**
+     * @param array<string, mixed> $payload
+     */
+    protected function updateTagById(int $id, array $payload, ?string $token = null): void
+    {
+        $this->requestJson('PATCH', '/tag/'.$id, $payload, $token);
+    }
+
     private function resetDatabase(): void
     {
         $metadata = $this->entityManager->getMetadataFactory()->getAllMetadata();

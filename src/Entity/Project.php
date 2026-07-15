@@ -432,4 +432,9 @@ class Project
     {
         return $this->canBeModifiedBy($user);
     }
+
+    public function canUpdateTagBy(User $user): bool
+    {
+        return $this->canBeModifiedBy($user);
+    }
 }
