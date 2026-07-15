@@ -437,4 +437,9 @@ class Project
     {
         return $this->canBeModifiedBy($user);
     }
+
+    public function canDeleteTagBy(User $user): bool
+    {
+        return $this->canBeModifiedBy($user);
+    }
 }
