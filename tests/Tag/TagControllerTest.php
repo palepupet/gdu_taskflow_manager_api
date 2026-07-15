@@ -53,4 +53,50 @@ class TagControllerTest extends ApiTestCase
         $this->postProjectTag($projectId, ['label' => 'trop tard'], $token);
         self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
     }
+
+    public function testOwnerCanListTags(): void
+    {
+        ['projectId' => $projectId, 'token' => $token] = $this->createProjectAs();
+
+        $this->postProjectTag($projectId, ['label' => 'urgent'], $token);
+        $this->postProjectTag($projectId, ['label' => 'backend'], $token);
+
+        $this->getProjectTags($projectId, $token);
+        self::assertResponseIsSuccessful();
+
+        $data = $this->getJsonResponse();
+        self::assertCount(2, $data);
+        $labels = array_column($data, 'label');
+        self::assertSame(['backend', 'urgent'], $labels);
+    }
+
+    public function testMemberCanListTags(): void
+    {
+        ['projectId' => $projectId, 'token' => $token] = $this->createProjectAs();
+        $this->postProjectTag($projectId, ['label' => 'ops'], $token);
+
+        $memberToken = $this->addMemberToProject($projectId);
+        $this->getProjectTags($projectId, $memberToken);
+        self::assertResponseIsSuccessful();
+    }
+
+    public function testRandomUserCannotListTags(): void
+    {
+        ['projectId' => $projectId] = $this->createProjectAs();
+        $this->createUser(self::EMAIL_OTHER);
+        $otherToken = $this->loginAsUser(self::EMAIL_OTHER);
+
+        $this->getProjectTags($projectId, $otherToken);
+        self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
+    }
+
+    public function testCanListTagsOnArchivedProject(): void
+    {
+        ['projectId' => $projectId, 'token' => $token] = $this->createProjectAs();
+        $this->postProjectTag($projectId, ['label' => 'legacy'], $token);
+        $this->archiveProject($projectId, $token);
+
+        $this->getProjectTags($projectId, $token);
+        self::assertResponseIsSuccessful();
+    }
 }

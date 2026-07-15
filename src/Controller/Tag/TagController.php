@@ -84,4 +84,30 @@ class TagController extends AbstractController
             Response::HTTP_CREATED,
         );
     }
+
+    #[Route('/project/{id}/tags', name:'tag_list', requirements: ['id' => '\d+'], methods: ['GET'])]
+    public function list(
+        int $id,
+        ProjectRepositoryInterface $projectRepository,
+        TagRepositoryInterface $tagRepository,
+    ): JsonResponse {
+        $user = $this->getCurrentUser();
+
+        $project = $projectRepository->findById($id);
+        if (!$project instanceof Project) {
+            return ApiErrorResponse::notFound('Projet introuvable.');
+        }
+
+        if (!$project->isAccessibleBy($user)) {
+            throw $this->createAccessDeniedException();
+        }
+
+        $tags = $tagRepository->findByProjectId($id);
+        $data = array_map(
+            fn (Tag $tag): array => TagResponse::fromTag($tag)->toArray(),
+            $tags,
+        );
+
+        return new JsonResponse($data);
+    }
 }
