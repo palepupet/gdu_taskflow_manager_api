@@ -9,12 +9,14 @@ use App\Dto\Task\CreateTaskRequest;
 use App\Dto\Task\TaskResponse;
 use App\Dto\Task\UpdateTaskRequest;
 use App\Entity\Project;
+use App\Entity\Tag;
 use App\Entity\Task;
 use App\Entity\User;
 use App\Enum\TaskState;
 use App\Http\ApiErrorResponse;
 use App\Http\RequestPayloadParser;
 use App\Repository\ProjectRepositoryInterface;
+use App\Repository\TagRepositoryInterface;
 use App\Repository\TaskRepositoryInterface;
 use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
@@ -26,6 +28,7 @@ use Symfony\Component\Routing\Attribute\Route;
 
 /**
  * @SuppressWarnings("PHPMD.CouplingBetweenObjects")
+ * @SuppressWarnings("PHPMD.ExcessiveClassComplexity")
  */
 class TaskController extends AbstractController
 {
@@ -268,5 +271,55 @@ class TaskController extends AbstractController
         $entityManager->flush();
 
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);
+    }
+
+    #[Route('/task/{id}/tags/{tagId}', name: 'task_tag_add', requirements: ['id' => '\d+', 'tagId' => '\d+'], methods: ['POST'])]
+    public function addTag(
+        int $id,
+        int $tagId,
+        TaskRepositoryInterface $taskRepository,
+        TagRepositoryInterface $tagRepository,
+        EntityManagerInterface $entityManager,
+    ): JsonResponse {
+        $user = $this->getCurrentUser();
+
+        $task = $taskRepository->findById($id);
+        if (!$task instanceof Task) {
+            return ApiErrorResponse::notFound('Tâche introuvable.');
+        }
+
+        if (!$task->canBeModifiedBy($user)) {
+            throw $this->createAccessDeniedException();
+        }
+
+        $tag = $tagRepository->findById($tagId);
+        if (!$tag instanceof Tag) {
+            return ApiErrorResponse::notFound('Tag introuvable.');
+        }
+
+        $taskProject = $task->getProject();
+        $tagProject = $tag->getProject();
+        if (
+            !$taskProject instanceof Project
+            || !$tagProject instanceof Project
+            || $taskProject->getId() !== $tagProject->getId()
+        ) {
+            return ApiErrorResponse::conflict(
+                'TAG_NOT_IN_PROJECT',
+                'Ce tag n\'appartient pas au projet de la tâche.',
+            );
+        }
+
+        if ($task->hasTag($tag)) {
+            return ApiErrorResponse::conflict(
+                'TAG_ALREADY_LINKED',
+                'Ce tag est déjà associé à la tâche.',
+            );
+        }
+
+        $task->addTag($tag);
+        $entityManager->flush();
+
+        return new JsonResponse(TaskResponse::fromTask($task)->toArray());
     }
 }

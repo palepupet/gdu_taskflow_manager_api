@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Dto\Task;
 
+use App\Dto\Tag\TagResponse;
 use App\Dto\User\UserSummaryResponse;
 use App\Entity\Project;
 use App\Entity\Task;
@@ -13,6 +14,8 @@ class TaskResponse
 {
     /**
      * @SuppressWarnings("PHPMD.ExcessiveParameterList")
+     *
+     * @param list<TagResponse> $tags
      */
     public function __construct(
         public int $id,
@@ -23,6 +26,7 @@ class TaskResponse
         public string $state,
         public int $projectId,
         public ?UserSummaryResponse $assignee,
+        public array $tags,
         public string $createdAt,
         public ?string $updatedAt,
     ) {
@@ -48,6 +52,11 @@ class TaskResponse
             ? UserSummaryResponse::fromUser($assignee)
             : null;
 
+        $tags = [];
+        foreach ($task->getTags() as $tag) {
+            $tags[] = TagResponse::fromTag($tag);
+        }
+
         return new self(
             id: $id,
             title: (string) $task->getTitle(),
@@ -57,6 +66,7 @@ class TaskResponse
             state: $task->getState()->value,
             projectId: $projectId,
             assignee: $assigneeResponse,
+            tags: $tags,
             createdAt: $createdAt->format(\DateTimeInterface::ATOM),
             updatedAt: $task->getUpdatedAt()?->format(\DateTimeInterface::ATOM),
         );
@@ -74,6 +84,10 @@ class TaskResponse
             'state' => $this->state,
             'projectId' => $this->projectId,
             'assignee' => $this->assignee?->toArray(),
+            'tags' => array_map(
+                static fn (TagResponse $tag): array => $tag->toArray(),
+                $this->tags,
+            ),
             'createdAt' => $this->createdAt,
             'updatedAt' => $this->updatedAt,
         ];
