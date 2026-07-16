@@ -11,6 +11,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 /**
  * @SuppressWarnings("PHPMD.TooManyPublicMethods")
+ * @SuppressWarnings("PHPMD.TooManyMethods")
  */
 class TaskControllerTest extends ApiTestCase
 {
@@ -342,5 +343,106 @@ class TaskControllerTest extends ApiTestCase
 
         $this->postProjectTask($projectId, ['title' => 'Tentative manager'], $managerToken);
         self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
+    }
+
+    public function testOwnerCanAddTagToTask(): void
+    {
+        ['projectId' => $projectId, 'token' => $token] = $this->createProjectAs();
+        $taskId = $this->addTaskToProject($projectId, ['title' => 'Tâche'], $token);
+
+        $this->postProjectTag($projectId, ['label' => 'urgent'], $token);
+        $tagId = $this->extractIntId($this->getJsonResponse());
+
+        $this->addTagToTask($taskId, $tagId, $token);
+        self::assertResponseIsSuccessful();
+
+        $data = $this->getJsonResponse();
+        self::assertArrayHasKey('tags', $data);
+        self::assertIsArray($data['tags']);
+        self::assertCount(1, $data['tags']);
+
+        $labels = array_column($data['tags'], 'label');
+        self::assertSame(['urgent'], $labels);
+    }
+
+    public function testMemberCannotAddTagToTask(): void
+    {
+        ['projectId' => $projectId, 'token' => $token] = $this->createProjectAs();
+        $taskId = $this->addTaskToProject($projectId, ['title' => 'Tâche'], $token);
+
+        $this->postProjectTag($projectId, ['label' => 'ops'], $token);
+        $tagId = $this->extractIntId($this->getJsonResponse());
+
+        $memberToken = $this->addMemberToProject($projectId);
+        $this->addTagToTask($taskId, $tagId, $memberToken);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
+    }
+
+    public function testCannotAddTagFromOtherProject(): void
+    {
+        ['projectId' => $projectIdA, 'token' => $tokenA] = $this->createProjectAs(self::EMAIL_OWNER);
+        $taskId = $this->addTaskToProject($projectIdA, ['title' => 'Tâche A'], $tokenA);
+
+        ['projectId' => $projectIdB, 'token' => $tokenB] = $this->createProjectAs(self::EMAIL_OTHER);
+        $this->postProjectTag($projectIdB, ['label' => 'autre-projet'], $tokenB);
+        $tagIdFromB = $this->extractIntId($this->getJsonResponse());
+
+        $this->addTagToTask($taskId, $tagIdFromB, $tokenA);
+        self::assertResponseStatusCodeSame(Response::HTTP_CONFLICT);
+
+        $data = $this->getJsonResponse();
+        self::assertSame('TAG_NOT_IN_PROJECT', $data['code']);
+    }
+
+    public function testCannotAddSameTagTwice(): void
+    {
+        ['projectId' => $projectId, 'token' => $token] = $this->createProjectAs();
+        $taskId = $this->addTaskToProject($projectId, ['title' => 'Tâche'], $token);
+
+        $this->postProjectTag($projectId, ['label' => 'backend'], $token);
+        $tagId = $this->extractIntId($this->getJsonResponse());
+
+        $this->addTagToTask($taskId, $tagId, $token);
+        self::assertResponseIsSuccessful();
+
+        $this->addTagToTask($taskId, $tagId, $token);
+        self::assertResponseStatusCodeSame(Response::HTTP_CONFLICT);
+
+        $data = $this->getJsonResponse();
+        self::assertSame('TAG_ALREADY_LINKED', $data['code']);
+    }
+
+    public function testCannotAddTagOnArchivedProject(): void
+    {
+        ['projectId' => $projectId, 'token' => $token] = $this->createProjectAs();
+        $taskId = $this->addTaskToProject($projectId, ['title' => 'Tâche'], $token);
+
+        $this->postProjectTag($projectId, ['label' => 'legacy'], $token);
+        $tagId = $this->extractIntId($this->getJsonResponse());
+
+        $this->archiveProject($projectId, $token);
+
+        $this->addTagToTask($taskId, $tagId, $token);
+        self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
+    }
+
+    public function testCannotAddUnknownTagToTask(): void
+    {
+        ['projectId' => $projectId, 'token' => $token] = $this->createProjectAs();
+        $taskId = $this->addTaskToProject($projectId, ['title' => 'Tâche'], $token);
+
+        $this->addTagToTask($taskId, 99999, $token);
+        self::assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND);
+    }
+
+    public function testCannotAddTagToUnknownTask(): void
+    {
+        ['projectId' => $projectId, 'token' => $token] = $this->createProjectAs();
+        $this->postProjectTag($projectId, ['label' => 'urgent'], $token);
+        $tagId = $this->extractIntId($this->getJsonResponse());
+
+        $this->addTagToTask(99999, $tagId, $token);
+        self::assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND);
     }
 }

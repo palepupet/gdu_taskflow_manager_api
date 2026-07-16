@@ -211,13 +211,14 @@ Authorization: Bearer <jwt>
 
 ### Tâches
 
-| Méthode  | Route                 | Auth | Description                                      |
-|----------|-----------------------|------|--------------------------------------------------|
-| `GET`    | `/project/{id}/tasks` | JWT  | Liste des tâches d'un projet                     |
-| `POST`   | `/project/{id}/tasks` | JWT  | Créer une tâche (owner ou manager, projet actif) |
-| `GET`    | `/task/{id}`          | JWT  | Détail d'une tâche                               |
-| `PATCH`  | `/task/{id}`          | JWT  | Modifier une tâche (champs métier et/ou `state`) |
-| `DELETE` | `/task/{id}`          | JWT  | Supprimer une tâche (owner ou manager)           |
+| Méthode  | Route                        | Auth | Description                                      |
+|----------|------------------------------|------|--------------------------------------------------|
+| `GET`    | `/project/{id}/tasks`        | JWT  | Liste des tâches d'un projet                     |
+| `POST`   | `/project/{id}/tasks`        | JWT  | Créer une tâche (owner ou manager, projet actif) |
+| `GET`    | `/task/{id}`                 | JWT  | Détail d'une tâche                               |
+| `PATCH`  | `/task/{id}`                 | JWT  | Modifier une tâche (champs métier et/ou `state`) |
+| `DELETE` | `/task/{id}`                 | JWT  | Supprimer une tâche (owner ou manager)           |
+| `POST`   | `/task/{id}/tags/{tagId}`    | JWT  | Associer un tag à une tâche (owner ou manager)   |
 
 #### Corps JSON utiles (tâches)
 
@@ -249,14 +250,16 @@ Authorization: Bearer <jwt>
 
 ### Tags
 
-| Méthode  | Route                | Auth | Description                                         |
-|----------|----------------------|------|-----------------------------------------------------|
-| `GET`    | `/project/{id}/tags` | JWT  | Liste des tags du projet (owner, membre ou manager) |
-| `POST`   | `/project/{id}/tags` | JWT  | Créer un tag (owner ou manager, projet actif)       |
-| `PATCH`  | `/tag/{id}`          | JWT  | Renommer un tag (owner ou manager, projet actif)    |
-| `DELETE` | `/tag/{id}`          | JWT  | Supprimer un tag (owner ou manager, projet actif)   |
+| Méthode  | Route                     | Auth | Description                                         |
+|----------|---------------------------|------|-----------------------------------------------------|
+| `GET`    | `/project/{id}/tags`      | JWT  | Liste des tags du projet (owner, membre ou manager) |
+| `POST`   | `/project/{id}/tags`      | JWT  | Créer un tag (owner ou manager, projet actif)       |
+| `PATCH`  | `/tag/{id}`               | JWT  | Renommer un tag (owner ou manager, projet actif)    |
+| `DELETE` | `/tag/{id}`               | JWT  | Supprimer un tag (owner ou manager, projet actif)   |
+| `POST`   | `/task/{id}/tags/{tagId}` | JWT  | Associer un tag à une tâche (owner ou manager)      |
 
 Les tags d'un projet sont aussi inclus dans la réponse de `GET /project/{id}`.
+Les tags d'une tâche sont inclus dans les réponses tâche (champ `tags`).
 
 #### Corps JSON utiles (tags)
 
