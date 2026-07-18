@@ -445,4 +445,57 @@ class TaskControllerTest extends ApiTestCase
         $this->addTagToTask(99999, $tagId, $token);
         self::assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND);
     }
+
+    public function testOwnerCanRemoveTagFromTask(): void
+    {
+        ['projectId' => $projectId, 'token' => $token] = $this->createProjectAs();
+        $taskId = $this->addTaskToProject($projectId, ['title' => 'Tâche'], $token);
+
+        $this->postProjectTag($projectId, ['label' => 'urgent'], $token);
+        $tagId = $this->extractIntId($this->getJsonResponse());
+
+        $this->addTagToTask($taskId, $tagId, $token);
+        self::assertResponseIsSuccessful();
+
+        $this->removeTagFromTask($taskId, $tagId, $token);
+        self::assertResponseIsSuccessful();
+
+        $data = $this->getJsonResponse();
+        self::assertArrayHasKey('tags', $data);
+        self::assertIsArray($data['tags']);
+        self::assertCount(0, $data['tags']);
+
+        $this->getProjectTags($projectId, $token);
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $this->getJsonResponse());
+    }
+
+    public function testMemberCannotRemoveTagFromTask(): void
+    {
+        ['projectId' => $projectId, 'token' => $token] = $this->createProjectAs();
+        $taskId = $this->addTaskToProject($projectId, ['title' => 'Tâche'], $token);
+
+        $this->postProjectTag($projectId, ['label' => 'ops'], $token);
+        $tagId = $this->extractIntId($this->getJsonResponse());
+        $this->addTagToTask($taskId, $tagId, $token);
+
+        $memberToken = $this->addMemberToProject($projectId);
+        $this->removeTagFromTask($taskId, $tagId, $memberToken);
+        self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
+    }
+
+    public function testCannotRemoveTagOnArchivedProject(): void
+    {
+        ['projectId' => $projectId, 'token' => $token] = $this->createProjectAs();
+        $taskId = $this->addTaskToProject($projectId, ['title' => 'Tâche'], $token);
+
+        $this->postProjectTag($projectId, ['label' => 'legacy'], $token);
+        $tagId = $this->extractIntId($this->getJsonResponse());
+        $this->addTagToTask($taskId, $tagId, $token);
+
+        $this->archiveProject($projectId, $token);
+
+        $this->removeTagFromTask($taskId, $tagId, $token);
+        self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
+    }
 }
