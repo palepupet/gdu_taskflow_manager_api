@@ -322,4 +322,52 @@ class TaskController extends AbstractController
 
         return new JsonResponse(TaskResponse::fromTask($task)->toArray());
     }
+
+    #[Route('/task/{id}/tags/{tagId}', name: 'task_tag_remove', requirements: ['id' => '\d+', 'tagId' => '\d+'], methods: ['DELETE'])]
+    public function removeTag(
+        int $id,
+        int $tagId,
+        TaskRepositoryInterface $taskRepository,
+        TagRepositoryInterface $tagRepository,
+        EntityManagerInterface $entityManager,
+    ): JsonResponse {
+        $user = $this->getCurrentUser();
+
+        $task = $taskRepository->findById($id);
+        if (!$task instanceof Task) {
+            return ApiErrorResponse::notFound('Tâche introuvable.');
+        }
+
+        if (!$task->canBeModifiedBy($user)) {
+            throw $this->createAccessDeniedException();
+        }
+
+        $tag = $tagRepository->findById($tagId);
+        if (!$tag instanceof Tag) {
+            return ApiErrorResponse::notFound('Tag introuvable.');
+        }
+
+        $taskProject = $task->getProject();
+        $tagProject = $tag->getProject();
+        if (
+            !$taskProject instanceof Project
+            || !$tagProject instanceof Project
+            || $taskProject->getId() !== $tagProject->getId()
+        ) {
+            return ApiErrorResponse::conflict(
+                'TAG_NOT_IN_PROJECT',
+                'Ce tag n\'appartient pas au projet de la tâche.',
+            );
+        }
+
+        if (!$task->hasTag($tag)) {
+            return ApiErrorResponse::notFound('Ce tag n\'est pas associé à la tâche.');
+        }
+
+        $task->removeTag($tag);
+
+        $entityManager->flush();
+
+        return new JsonResponse(TaskResponse::fromTask($task)->toArray());
+    }
 }

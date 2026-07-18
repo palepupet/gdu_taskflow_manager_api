@@ -219,6 +219,7 @@ Authorization: Bearer <jwt>
 | `PATCH`  | `/task/{id}`                 | JWT  | Modifier une tâche (champs métier et/ou `state`) |
 | `DELETE` | `/task/{id}`                 | JWT  | Supprimer une tâche (owner ou manager)           |
 | `POST`   | `/task/{id}/tags/{tagId}`    | JWT  | Associer un tag à une tâche (owner ou manager)   |
+| `DELETE` | `/task/{id}/tags/{tagId}`    | JWT  | Retirer un tag d'une tâche (owner ou manager)    |
 
 #### Corps JSON utiles (tâches)
 
@@ -257,6 +258,7 @@ Authorization: Bearer <jwt>
 | `PATCH`  | `/tag/{id}`               | JWT  | Renommer un tag (owner ou manager, projet actif)    |
 | `DELETE` | `/tag/{id}`               | JWT  | Supprimer un tag (owner ou manager, projet actif)   |
 | `POST`   | `/task/{id}/tags/{tagId}` | JWT  | Associer un tag à une tâche (owner ou manager)      |
+| `DELETE` | `/task/{id}/tags/{tagId}` | JWT  | Retirer un tag d'une tâche (owner ou manager)       |
 
 Les tags d'un projet sont aussi inclus dans la réponse de `GET /project/{id}`.
 Les tags d'une tâche sont inclus dans les réponses tâche (champ `tags`).
