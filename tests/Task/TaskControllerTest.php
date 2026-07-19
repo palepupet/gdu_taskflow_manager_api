@@ -575,4 +575,46 @@ class TaskControllerTest extends ApiTestCase
         $this->updateTaskById($taskId, ['tags' => [$tagId]], $memberToken);
         self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
     }
+
+    public function testOwnerCanSearchTasks(): void
+    {
+        ['projectId' => $projectId, 'token' => $token] = $this->createProjectAs();
+        $this->addTaskToProject($projectId, ['title' => 'A'], $token);
+        $this->addTaskToProject($projectId, ['title' => 'B'], $token);
+
+        $this->searchProjectTasks($projectId, ['filters' => []], $token);
+        self::assertResponseIsSuccessful();
+
+        $data = $this->getJsonResponse();
+        self::assertCount(2, $data);
+    }
+
+    public function testOwnerCanFilterTasksByState(): void
+    {
+        ['projectId' => $projectId, 'token' => $token] = $this->createProjectAs();
+        $this->addTaskToProject($projectId, ['title' => 'Ouverte'], $token);
+        $closedId = $this->addTaskToProject($projectId, ['title' => 'Fermée'], $token);
+        $this->updateTaskById($closedId, ['state' => TaskState::CLOSED->value], $token);
+
+        $this->searchProjectTasks($projectId, [
+            'filters' => ['state' => [TaskState::CLOSED->value]],
+        ], $token);
+        self::assertResponseIsSuccessful();
+
+        $data = $this->getJsonResponse();
+        self::assertCount(1, $data);
+
+        $titles = array_column($data, 'title');
+        self::assertSame(['Fermée'], $titles);
+    }
+
+    public function testOutsiderCannotSearchTasks(): void
+    {
+        ['projectId' => $projectId] = $this->createProjectAs();
+        $this->createUser(self::EMAIL_OTHER);
+        $otherToken = $this->loginAsUser(self::EMAIL_OTHER);
+
+        $this->searchProjectTasks($projectId, ['filters' => []], $otherToken);
+        self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
+    }
 }
