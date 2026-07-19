@@ -498,4 +498,81 @@ class TaskControllerTest extends ApiTestCase
         $this->removeTagFromTask($taskId, $tagId, $token);
         self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
     }
+
+    public function testOwnerCanReplaceTaskTags(): void
+    {
+        ['projectId' => $projectId, 'token' => $token] = $this->createProjectAs();
+        $taskId = $this->addTaskToProject($projectId, ['title' => 'Tâche'], $token);
+
+        $this->postProjectTag($projectId, ['label' => 'urgent'], $token);
+        $tagUrgent = $this->extractIntId($this->getJsonResponse());
+
+        $this->postProjectTag($projectId, ['label' => 'backend'], $token);
+        $tagBackend = $this->extractIntId($this->getJsonResponse());
+
+        $this->postProjectTag($projectId, ['label' => 'frontend'], $token);
+        $tagFrontend = $this->extractIntId($this->getJsonResponse());
+
+        $this->addTagToTask($taskId, $tagUrgent, $token);
+
+        $this->updateTaskById($taskId, [
+            'tags' => [$tagBackend, $tagFrontend],
+        ], $token);
+        self::assertResponseIsSuccessful();
+
+        $data = $this->getJsonResponse();
+        self::assertArrayHasKey('tags', $data);
+        self::assertIsArray($data['tags']);
+        self::assertCount(2, $data['tags']);
+
+        $labels = array_column($data['tags'], 'label');
+        self::assertSame(['backend', 'frontend'], $labels);
+    }
+
+    public function testOwnerCanClearTaskTags(): void
+    {
+        ['projectId' => $projectId, 'token' => $token] = $this->createProjectAs();
+        $taskId = $this->addTaskToProject($projectId, ['title' => 'Tâche'], $token);
+
+        $this->postProjectTag($projectId, ['label' => 'urgent'], $token);
+        $tagId = $this->extractIntId($this->getJsonResponse());
+        $this->addTagToTask($taskId, $tagId, $token);
+
+        $this->updateTaskById($taskId, ['tags' => []], $token);
+        self::assertResponseIsSuccessful();
+
+        $data = $this->getJsonResponse();
+        self::assertArrayHasKey('tags', $data);
+        self::assertIsArray($data['tags']);
+        self::assertCount(0, $data['tags']);
+    }
+
+    public function testCannotPatchTaskTagsFromOtherProject(): void
+    {
+        ['projectId' => $projectIdA, 'token' => $tokenA] = $this->createProjectAs();
+        $taskId = $this->addTaskToProject($projectIdA, ['title' => 'Tâche A'], $tokenA);
+
+        ['projectId' => $projectIdB, 'token' => $tokenB] = $this->createProjectAs(self::EMAIL_OTHER);
+        $this->postProjectTag($projectIdB, ['label' => 'autre'], $tokenB);
+        $tagFromB = $this->extractIntId($this->getJsonResponse());
+
+        $this->updateTaskById($taskId, ['tags' => [$tagFromB]], $tokenA);
+        self::assertResponseStatusCodeSame(Response::HTTP_CONFLICT);
+
+        $data = $this->getJsonResponse();
+        self::assertSame('TAG_NOT_IN_PROJECT', $data['code']);
+    }
+
+    public function testMemberCannotPatchTaskTags(): void
+    {
+        ['projectId' => $projectId, 'token' => $token] = $this->createProjectAs();
+        $taskId = $this->addTaskToProject($projectId, ['title' => 'Tâche'], $token);
+
+        $this->postProjectTag($projectId, ['label' => 'ops'], $token);
+        $tagId = $this->extractIntId($this->getJsonResponse());
+
+        $memberToken = $this->addMemberToProject($projectId);
+        $this->updateTaskById($taskId, ['tags' => [$tagId]], $memberToken);
+        self::assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
+    }
 }

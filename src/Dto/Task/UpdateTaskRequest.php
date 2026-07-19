@@ -10,6 +10,9 @@ use Symfony\Component\Validator\Constraints as Assert;
 
 class UpdateTaskRequest
 {
+    /**
+     * @param list<int>|null $tags
+     */
     public function __construct(
         #[Assert\NotBlank(message: 'Le titre ne doit pas être vide.', allowNull: true)]
         #[Assert\Length(max: 100)]
@@ -22,10 +25,15 @@ class UpdateTaskRequest
         #[Assert\Choice(callback: [TaskState::class, 'values'])]
         public ?string $state = null,
         public ?int $assignee = null,
+        #[Assert\All(new Assert\Type('integer'))]
+        public ?array $tags = null,
     ) {
     }
 
     /**
+     * @SuppressWarnings("PHPMD.NPathComplexity")
+     * @SuppressWarnings("PHPMD.CyclomaticComplexity")
+     *
      * @param array<string, mixed> $data
      */
     public static function fromArray(array $data): self
@@ -33,6 +41,17 @@ class UpdateTaskRequest
         $assignee = null;
         if (array_key_exists('assignee', $data) && is_numeric($data['assignee'])) {
             $assignee = (int) $data['assignee'];
+        }
+
+        $tagIds = null;
+        if (array_key_exists('tags', $data) && \is_array($data['tags'])) {
+            $tagIds = array_values(array_unique(array_filter(
+                array_map(
+                    static fn (mixed $id): ?int => is_numeric($id) ? (int) $id : null,
+                    $data['tags'],
+                ),
+                static fn (?int $id): bool => null !== $id,
+            )));
         }
 
         return new self(
@@ -46,6 +65,7 @@ class UpdateTaskRequest
             priority: isset($data['priority']) && \is_string($data['priority']) ? $data['priority'] : null,
             state: isset($data['state']) && \is_string($data['state']) ? $data['state'] : null,
             assignee: $assignee,
+            tags: $tagIds,
         );
     }
 

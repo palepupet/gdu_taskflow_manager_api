@@ -94,6 +94,7 @@ class TaskController extends AbstractController
         int $id,
         Request $request,
         TaskRepositoryInterface $taskRepository,
+        TagRepositoryInterface $tagRepository,
         UserRepository $userRepository,
         EntityManagerInterface $entityManager,
     ): JsonResponse {
@@ -123,7 +124,8 @@ class TaskController extends AbstractController
             || array_key_exists('description', $data)
             || array_key_exists('dueAt', $data)
             || null !== $dto->getPriorityAsEnum()
-            || array_key_exists('assignee', $data);
+            || array_key_exists('assignee', $data)
+            || array_key_exists('tags', $data);
 
         if ($shouldUpdateNonStateField && !$task->canBeModifiedBy($user)) {
             throw $this->createAccessDeniedException();
@@ -175,6 +177,49 @@ class TaskController extends AbstractController
             }
 
             $task->setAssignee($assignee);
+        }
+
+        if (array_key_exists('tags', $data)) {
+            if (!\is_array($data['tags'])) {
+                return ApiErrorResponse::badRequest('tags doit être un tableau d\'id.');
+            }
+
+            $project = $task->getProject();
+            if (!$project instanceof Project) {
+                return ApiErrorResponse::notFound('Projet introuvable.');
+            }
+
+            $projectId = $project->getId();
+            if (null === $projectId) {
+                throw new \LogicException('Le projet doit avoir un id.');
+            }
+
+            foreach ($task->getTags()->toArray() as $existingTag) {
+                $task->removeTag($existingTag);
+            }
+
+            /** @var list<int> $tagIds */
+            $tagIds = $dto->tags ?? [];
+
+            foreach ($tagIds as $tagId) {
+                $tag = $tagRepository->findById($tagId);
+                if (!$tag instanceof Tag) {
+                    return ApiErrorResponse::notFound('Tag introuvable.');
+                }
+
+                $tagProject = $tag->getProject();
+                if (
+                    !$tagProject instanceof Project
+                    || $tagProject->getId() !== $projectId
+                ) {
+                    return ApiErrorResponse::conflict(
+                        'TAG_NOT_IN_PROJECT',
+                        'Ce tag n\'appartient pas au projet de la tâche.',
+                    );
+                }
+
+                $task->addTag($tag);
+            }
         }
 
         $error = $this->requestPayloadParser->validateEntity($task);

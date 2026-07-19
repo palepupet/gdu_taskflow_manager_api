@@ -211,15 +211,15 @@ Authorization: Bearer <jwt>
 
 ### Tâches
 
-| Méthode  | Route                        | Auth | Description                                      |
-|----------|------------------------------|------|--------------------------------------------------|
-| `GET`    | `/project/{id}/tasks`        | JWT  | Liste des tâches d'un projet                     |
-| `POST`   | `/project/{id}/tasks`        | JWT  | Créer une tâche (owner ou manager, projet actif) |
-| `GET`    | `/task/{id}`                 | JWT  | Détail d'une tâche                               |
-| `PATCH`  | `/task/{id}`                 | JWT  | Modifier une tâche (champs métier et/ou `state`) |
-| `DELETE` | `/task/{id}`                 | JWT  | Supprimer une tâche (owner ou manager)           |
-| `POST`   | `/task/{id}/tags/{tagId}`    | JWT  | Associer un tag à une tâche (owner ou manager)   |
-| `DELETE` | `/task/{id}/tags/{tagId}`    | JWT  | Retirer un tag d'une tâche (owner ou manager)    |
+| Méthode  | Route                     | Auth | Description                                         |
+|----------|---------------------------|------|-----------------------------------------------------|
+| `GET`    | `/project/{id}/tasks`     | JWT  | Liste des tâches d'un projet                        |
+| `POST`   | `/project/{id}/tasks`     | JWT  | Créer une tâche (owner ou manager, projet actif)    |
+| `GET`    | `/task/{id}`              | JWT  | Détail d'une tâche                                  |
+| `PATCH`  | `/task/{id}`              | JWT  | Modifier une tâche (champs métier, `state`, `tags`) |
+| `DELETE` | `/task/{id}`              | JWT  | Supprimer une tâche (owner ou manager)              |
+| `POST`   | `/task/{id}/tags/{tagId}` | JWT  | Associer un tag à une tâche (owner ou manager)      |
+| `DELETE` | `/task/{id}/tags/{tagId}` | JWT  | Retirer un tag d'une tâche (owner ou manager)       |
 
 #### Corps JSON utiles (tâches)
 
@@ -241,13 +241,15 @@ Authorization: Bearer <jwt>
 {
   "title": "Nouveau titre",
   "state": "en cours",
-  "assignee": null
+  "assignee": null,
+  "tags": [1, 3]
 }
 ```
 
 - `dueAt` au format `YYYY-MM-DD` (entrée et sortie), comme `startAt` / `endAt` sur les projets.
 - `assignee` (entier) à l'entrée, objet utilisateur ou `null` en sortie.
 - Assigner un utilisateur à une tâche, l'ajoute automatiquement comme membre du projet s'il ne l'est pas encore.
+- `tags` : remplacement complet de la liste des tags (ids du même projet). Absent = tags inchangés. Si [vide] = retire tous les tags.
 
 ### Tags
 
