@@ -6,6 +6,7 @@ namespace App\Controller\Task;
 
 use App\Controller\Trait\CurrentUserTrait;
 use App\Dto\Task\CreateTaskRequest;
+use App\Dto\Task\SearchTaskRequest;
 use App\Dto\Task\TaskResponse;
 use App\Dto\Task\UpdateTaskRequest;
 use App\Entity\Project;
@@ -414,5 +415,43 @@ class TaskController extends AbstractController
         $entityManager->flush();
 
         return new JsonResponse(TaskResponse::fromTask($task)->toArray());
+    }
+
+    #[Route('/project/{id}/tasks/search', name: 'task_search', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function search(
+        int $id,
+        Request $request,
+        ProjectRepositoryInterface $projectRepository,
+        TaskRepositoryInterface $taskRepository,
+    ): JsonResponse {
+        $user = $this->getCurrentUser();
+
+        $project = $projectRepository->findById($id);
+        if (!$project instanceof Project) {
+            return ApiErrorResponse::notFound('Projet introuvable.');
+        }
+
+        if (!$project->isAccessibleBy($user)) {
+            throw $this->createAccessDeniedException();
+        }
+
+        $data = $this->requestPayloadParser->decode($request);
+        if ($data instanceof JsonResponse) {
+            return $data;
+        }
+
+        $dto = $this->requestPayloadParser->validate(SearchTaskRequest::fromArray($data));
+        if ($dto instanceof JsonResponse) {
+            return $dto;
+        }
+
+        /** @var SearchTaskRequest $dto */
+        $tasks = $taskRepository->searchByProjectId($id, $dto);
+        $payload = array_map(
+            static fn (Task $task): array => TaskResponse::fromTask($task)->toArray(),
+            $tasks,
+        );
+
+        return new JsonResponse($payload);
     }
 }

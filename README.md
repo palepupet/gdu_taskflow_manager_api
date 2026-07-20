@@ -211,15 +211,16 @@ Authorization: Bearer <jwt>
 
 ### Tâches
 
-| Méthode  | Route                     | Auth | Description                                         |
-|----------|---------------------------|------|-----------------------------------------------------|
-| `GET`    | `/project/{id}/tasks`     | JWT  | Liste des tâches d'un projet                        |
-| `POST`   | `/project/{id}/tasks`     | JWT  | Créer une tâche (owner ou manager, projet actif)    |
-| `GET`    | `/task/{id}`              | JWT  | Détail d'une tâche                                  |
-| `PATCH`  | `/task/{id}`              | JWT  | Modifier une tâche (champs métier, `state`, `tags`) |
-| `DELETE` | `/task/{id}`              | JWT  | Supprimer une tâche (owner ou manager)              |
-| `POST`   | `/task/{id}/tags/{tagId}` | JWT  | Associer un tag à une tâche (owner ou manager)      |
-| `DELETE` | `/task/{id}/tags/{tagId}` | JWT  | Retirer un tag d'une tâche (owner ou manager)       |
+| Méthode  | Route                        | Auth | Description                                         |
+|----------|------------------------------|------|-----------------------------------------------------|
+| `GET`    | `/project/{id}/tasks`        | JWT  | Liste des tâches d'un projet                        |
+| `POST`   | `/project/{id}/tasks`        | JWT  | Créer une tâche (owner ou manager, projet actif)    |
+| `POST`   | `/project/{id}/tasks/search` | JWT  | Rechercher/filtrer les tâches d'un projet           |
+| `GET`    | `/task/{id}`                 | JWT  | Détail d'une tâche                                  |
+| `PATCH`  | `/task/{id}`                 | JWT  | Modifier une tâche (champs métier, `state`, `tags`) |
+| `DELETE` | `/task/{id}`                 | JWT  | Supprimer une tâche (owner ou manager)              |
+| `POST`   | `/task/{id}/tags/{tagId}`    | JWT  | Associer un tag à une tâche (owner ou manager)      |
+| `DELETE` | `/task/{id}/tags/{tagId}`    | JWT  | Retirer un tag d'une tâche (owner ou manager)       |
 
 #### Corps JSON utiles (tâches)
 
@@ -250,6 +251,34 @@ Authorization: Bearer <jwt>
 - `assignee` (entier) à l'entrée, objet utilisateur ou `null` en sortie.
 - Assigner un utilisateur à une tâche, l'ajoute automatiquement comme membre du projet s'il ne l'est pas encore.
 - `tags` : remplacement complet de la liste des tags (ids du même projet). Absent = tags inchangés. Si [vide] = retire tous les tags.
+
+**Recherche** (`POST /project/{id}/tasks/search`) — filtres et tri dans le body :
+
+```json
+{
+  "filters": {
+    "state": ["ouvert", "en cours"],
+    "priority": ["élevée"],
+    "dueBefore": "2026-07-01",
+    "tags": [1, 3],
+    "assignee": 5
+  },
+  "sort": {
+    "field": "dueAt",
+    "order": "asc"
+  }
+}
+```
+
+- Accessible en lecture pour le owner, un membre ou un manager (même règle que `GET /project/{id}/tasks`).
+- Tous les champs sont optionnels. Sans filtre (`{ "filters": [] }` ou `{}` valide), retourne toutes les tâches du projet.
+- `state` / `priority` : listes de valeurs (ou une seule chaîne, normalisée en liste).
+- `dueBefore` : date `YYYY-MM-DD` ; ne garde que les tâches avec une échéance ≤ fin de cette journée.
+- `tags` : ids de tags du projet ; une tâche match si elle a, au moins, un de ces tags.
+- `assignee` : id utilisateur assigné.
+- `sort.field` : `id`, `dueAt`, `priority`, `state`, `createdAt` ou `title` (défaut : `id`).
+- `sort.order` : `asc` ou `desc` (défaut : `desc`).
+- Réponse : tableau de tâches (comme `GET /project/{id}/tasks`).
 
 ### Tags
 
