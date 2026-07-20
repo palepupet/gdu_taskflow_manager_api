@@ -577,4 +577,58 @@ class ProjectControllerTest extends ApiTestCase
         self::assertIsArray($task2);
         self::assertSame(TaskPriority::MEDIUM->value, $task2['priority']);
     }
+
+    public function testOwnerCanSearchProjects(): void
+    {
+        ['token' => $token] = $this->createProjectAs();
+
+        $this->searchProjects(['filters' => []], $token);
+        self::assertResponseIsSuccessful();
+
+        $data = $this->getJsonResponse();
+        self::assertCount(1, $data);
+    }
+
+    public function testOwnerCanFilterProjectsByStatus(): void
+    {
+        ['projectId' => $projectId, 'token' => $token] = $this->createProjectAs();
+        $this->updateProjectById($projectId, ['status' => ProjectStatus::COMPLETED->value], $token);
+
+        $this->searchProjects([
+            'filters' => ['status' => [ProjectStatus::COMPLETED->value]],
+        ], $token);
+        self::assertResponseIsSuccessful();
+
+        $data = $this->getJsonResponse();
+        self::assertCount(1, $data);
+
+        $statuses = array_column($data, 'status');
+        self::assertSame([ProjectStatus::COMPLETED->value], $statuses);
+    }
+
+    public function testOwnerCanFilterProjectsByArchived(): void
+    {
+        ['projectId' => $projectId, 'token' => $token] = $this->createProjectAs();
+        $this->updateProjectById($projectId, ['status' => ProjectStatus::COMPLETED->value], $token);
+
+        $this->searchProjects(['filters' => ['archived' => true]], $token);
+        self::assertCount(1, $this->getJsonResponse());
+
+        $this->searchProjects(['filters' => ['archived' => false]], $token);
+        self::assertCount(0, $this->getJsonResponse());
+    }
+
+    public function testUserCanOnlySearchAccessibleProjects(): void
+    {
+        $this->createUser();
+        $userToken = $this->loginAsUser();
+        $managerToken = $this->loginAsManager();
+
+        $this->postProject($this->getValidCreateProjectPayload(), $userToken);
+        $this->postProject(['title' => 'Projet privé manager', 'description' => 'description'], $managerToken);
+
+        $this->searchProjects(['filters' => []], $userToken);
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $this->getJsonResponse());
+    }
 }
