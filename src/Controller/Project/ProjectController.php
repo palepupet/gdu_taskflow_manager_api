@@ -18,6 +18,7 @@ use App\Http\RequestPayloadParser;
 use App\Repository\ProjectRepositoryInterface;
 use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use OpenApi\Attributes as OA;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -27,6 +28,7 @@ use Symfony\Component\Routing\Attribute\Route;
 /**
  * @SuppressWarnings("PHPMD.CouplingBetweenObjects")
  */
+#[OA\Tag(name: 'Projets')]
 class ProjectController extends AbstractController
 {
     use CurrentUserTrait;
@@ -36,7 +38,15 @@ class ProjectController extends AbstractController
     ) {
     }
 
-    #[Route('/projects', name:'project_list', methods: ['GET'])]
+    #[Route('/projects', name: 'project_list', methods: ['GET'])]
+    #[OA\Get(
+        path: '/projects',
+        summary: 'Liste des projets accessibles',
+        responses: [
+            new OA\Response(response: 200, description: 'Liste de projets'),
+            new OA\Response(response: 401, description: 'Non authentifié'),
+        ],
+    )]
     public function list(ProjectRepositoryInterface $projectRepository): JsonResponse
     {
         $user = $this->getCurrentUser();
@@ -51,7 +61,19 @@ class ProjectController extends AbstractController
         return new JsonResponse($data);
     }
 
-    #[Route('/project/{id}', name:'project_detail', requirements: ['id' => '\d+'], methods: ['GET'])]
+    #[Route('/project/{id}', name: 'project_detail', requirements: ['id' => '\d+'], methods: ['GET'])]
+    #[OA\Get(
+        path: '/project/{id}',
+        summary: 'Détail d\'un projet',
+        parameters: [
+            new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Détail du projet'),
+            new OA\Response(response: 403, description: 'Accès refusé'),
+            new OA\Response(response: 404, description: 'Projet introuvable'),
+        ],
+    )]
     public function detail(
         int $id,
         ProjectRepositoryInterface $projectRepository,
@@ -70,7 +92,28 @@ class ProjectController extends AbstractController
         return new JsonResponse(ProjectResponse::fromProject($project)->toArray());
     }
 
-    #[Route('/project', name:'project_create', methods: ['POST'])]
+    #[Route('/project', name: 'project_create', methods: ['POST'])]
+    #[OA\Post(
+        path: '/project',
+        summary: 'Créer un projet',
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['title'],
+                properties: [
+                    new OA\Property(property: 'title', type: 'string', example: 'Mon projet'),
+                    new OA\Property(property: 'description', type: 'string', nullable: true),
+                    new OA\Property(property: 'startAt', type: 'string', format: 'date', nullable: true),
+                    new OA\Property(property: 'endAt', type: 'string', format: 'date', nullable: true),
+                ],
+            ),
+        ),
+        responses: [
+            new OA\Response(response: 201, description: 'Projet créé'),
+            new OA\Response(response: 400, description: 'Requête invalide'),
+            new OA\Response(response: 401, description: 'Non authentifié'),
+        ],
+    )]
     public function create(
         Request $request,
         EntityManagerInterface $entityManager,
@@ -116,7 +159,31 @@ class ProjectController extends AbstractController
      * @SuppressWarnings("PHPMD.NPathComplexity")
      * @SuppressWarnings("PHPMD.CyclomaticComplexity")
      */
-    #[Route('/project/{id}', name:'project_update', requirements: ['id' => '\d+'], methods: ['PATCH'])]
+    #[Route('/project/{id}', name: 'project_update', requirements: ['id' => '\d+'], methods: ['PATCH'])]
+    #[OA\Patch(
+        path: '/project/{id}',
+        summary: 'Modifier un projet (owner ou manager)',
+        requestBody: new OA\RequestBody(
+            content: new OA\JsonContent(
+                properties: [
+                    new OA\Property(property: 'title', type: 'string', nullable: true),
+                    new OA\Property(property: 'description', type: 'string', nullable: true),
+                    new OA\Property(property: 'startAt', type: 'string', format: 'date', nullable: true),
+                    new OA\Property(property: 'endAt', type: 'string', format: 'date', nullable: true),
+                    new OA\Property(property: 'status', type: 'string', enum: ['en cours', 'terminé', 'annulé'], nullable: true),
+                ],
+            ),
+        ),
+        parameters: [
+            new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Projet mis à jour'),
+            new OA\Response(response: 400, description: 'Requête invalide'),
+            new OA\Response(response: 403, description: 'Accès refusé'),
+            new OA\Response(response: 404, description: 'Projet introuvable'),
+        ],
+    )]
     public function update(
         int $id,
         Request $request,
@@ -202,6 +269,33 @@ class ProjectController extends AbstractController
      * @SuppressWarnings("PHPMD.ExcessiveMethodLength")
      */
     #[Route('/project/{id}/members', name: 'project_members_add', requirements: ['id' => '\d+'], methods: ['POST'])]
+    #[OA\Post(
+        path: '/project/{id}/members',
+        summary: 'Ajouter des membres au projet',
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['members'],
+                properties: [
+                    new OA\Property(
+                        property: 'members',
+                        type: 'array',
+                        items: new OA\Items(type: 'integer'),
+                        example: [2, 3],
+                    ),
+                ],
+            ),
+        ),
+        parameters: [
+            new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Membres ajoutés'),
+            new OA\Response(response: 403, description: 'Accès refusé'),
+            new OA\Response(response: 404, description: 'Projet ou utilisateur introuvable'),
+            new OA\Response(response: 409, description: 'Membre invalide'),
+        ],
+    )]
     public function addMembers(
         int $id,
         Request $request,
@@ -262,6 +356,32 @@ class ProjectController extends AbstractController
      * @SuppressWarnings("PHPMD.ExcessiveMethodLength")
      */
     #[Route('/project/{id}/members', name: 'project_members_remove', requirements: ['id' => '\d+'], methods: ['DELETE'])]
+    #[OA\Delete(
+        path: '/project/{id}/members',
+        summary: 'Retirer des membres du projet',
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['members'],
+                properties: [
+                    new OA\Property(
+                        property: 'members',
+                        type: 'array',
+                        items: new OA\Items(type: 'integer'),
+                        example: [2],
+                    ),
+                ],
+            ),
+        ),
+        parameters: [
+            new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Membres retirés'),
+            new OA\Response(response: 403, description: 'Accès refusé'),
+            new OA\Response(response: 404, description: 'Projet ou membre introuvable'),
+        ],
+    )]
     public function removeMembers(
         int $id,
         Request $request,
@@ -316,6 +436,41 @@ class ProjectController extends AbstractController
     }
 
     #[Route('/projects/search', name: 'project_search', methods: ['POST'])]
+    #[OA\Post(
+        path: '/projects/search',
+        summary: 'Rechercher / filtrer les projets accessibles',
+        requestBody: new OA\RequestBody(
+            content: new OA\JsonContent(
+                properties: [
+                    new OA\Property(
+                        property: 'filters',
+                        properties: [
+                            new OA\Property(
+                                property: 'status',
+                                type: 'array',
+                                items: new OA\Items(type: 'string', enum: ['en cours', 'terminé', 'annulé']),
+                            ),
+                            new OA\Property(property: 'archived', type: 'boolean', nullable: true),
+                        ],
+                        type: 'object',
+                    ),
+                    new OA\Property(
+                        property: 'sort',
+                        properties: [
+                            new OA\Property(property: 'field', type: 'string', example: 'createdAt'),
+                            new OA\Property(property: 'order', type: 'string', enum: ['asc', 'desc']),
+                        ],
+                        type: 'object',
+                    ),
+                ],
+            ),
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Liste de projets filtrés'),
+            new OA\Response(response: 400, description: 'Requête invalide'),
+            new OA\Response(response: 401, description: 'Non authentifié'),
+        ],
+    )]
     public function search(
         Request $request,
         ProjectRepositoryInterface $projectRepository,

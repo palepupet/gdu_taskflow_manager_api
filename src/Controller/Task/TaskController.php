@@ -21,6 +21,7 @@ use App\Repository\TagRepositoryInterface;
 use App\Repository\TaskRepositoryInterface;
 use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use OpenApi\Attributes as OA;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -31,6 +32,7 @@ use Symfony\Component\Routing\Attribute\Route;
  * @SuppressWarnings("PHPMD.CouplingBetweenObjects")
  * @SuppressWarnings("PHPMD.ExcessiveClassComplexity")
  */
+#[OA\Tag(name: 'Tâches')]
 class TaskController extends AbstractController
 {
     use CurrentUserTrait;
@@ -40,7 +42,19 @@ class TaskController extends AbstractController
     ) {
     }
 
-    #[Route('/project/{id}/tasks', name:'task_list', requirements: ['id' => '\d+'], methods: ['GET'])]
+    #[Route('/project/{id}/tasks', name: 'task_list', requirements: ['id' => '\d+'], methods: ['GET'])]
+    #[OA\Get(
+        path: '/project/{id}/tasks',
+        summary: 'Lister les tâches d\'un projet',
+        parameters: [
+            new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Liste des tâches'),
+            new OA\Response(response: 403, description: 'Accès refusé'),
+            new OA\Response(response: 404, description: 'Projet introuvable'),
+        ],
+    )]
     public function list(
         int $id,
         ProjectRepositoryInterface $projectRepository,
@@ -66,7 +80,19 @@ class TaskController extends AbstractController
         return new JsonResponse($data);
     }
 
-    #[Route('/task/{id}', name:'task_detail', requirements: ['id' => '\d+'], methods: ['GET'])]
+    #[Route('/task/{id}', name: 'task_detail', requirements: ['id' => '\d+'], methods: ['GET'])]
+    #[OA\Get(
+        path: '/task/{id}',
+        summary: 'Détail d\'une tâche',
+        parameters: [
+            new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Détail de la tâche'),
+            new OA\Response(response: 403, description: 'Accès refusé'),
+            new OA\Response(response: 404, description: 'Tâche introuvable'),
+        ],
+    )]
     public function detail(
         int $id,
         TaskRepositoryInterface $taskRepository,
@@ -90,7 +116,33 @@ class TaskController extends AbstractController
      * @SuppressWarnings("PHPMD.NPathComplexity")
      * @SuppressWarnings("PHPMD.CyclomaticComplexity")
      */
-    #[Route('/task/{id}', name:'task_update', requirements: ['id' => '\d+'], methods: ['PATCH'])]
+    #[Route('/task/{id}', name: 'task_update', requirements: ['id' => '\d+'], methods: ['PATCH'])]
+    #[OA\Patch(
+        path: '/task/{id}',
+        summary: 'Modifier une tâche',
+        requestBody: new OA\RequestBody(
+            content: new OA\JsonContent(
+                properties: [
+                    new OA\Property(property: 'title', type: 'string', nullable: true),
+                    new OA\Property(property: 'description', type: 'string', nullable: true),
+                    new OA\Property(property: 'dueAt', type: 'string', format: 'date', nullable: true),
+                    new OA\Property(property: 'priority', type: 'string', enum: ['basse', 'moyenne', 'élevée'], nullable: true),
+                    new OA\Property(property: 'state', type: 'string', enum: ['ouvert', 'en cours', 'terminé'], nullable: true),
+                    new OA\Property(property: 'assignee', type: 'integer', nullable: true),
+                    new OA\Property(property: 'tags', type: 'array', items: new OA\Items(type: 'integer'), nullable: true),
+                ],
+            ),
+        ),
+        parameters: [
+            new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Tâche mise à jour'),
+            new OA\Response(response: 400, description: 'Requête invalide'),
+            new OA\Response(response: 403, description: 'Accès refusé'),
+            new OA\Response(response: 404, description: 'Tâche introuvable'),
+        ],
+    )]
     public function update(
         int $id,
         Request $request,
@@ -236,7 +288,33 @@ class TaskController extends AbstractController
     /**
      * @SuppressWarnings("PHPMD.ExcessiveMethodLength")
      */
-    #[Route('/project/{id}/tasks', name:'task_create', requirements: ['id' => '\d+'], methods: ['POST'])]
+    #[Route('/project/{id}/tasks', name: 'task_create', requirements: ['id' => '\d+'], methods: ['POST'])]
+    #[OA\Post(
+        path: '/project/{id}/tasks',
+        summary: 'Créer une tâche',
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['title'],
+                properties: [
+                    new OA\Property(property: 'title', type: 'string', example: 'Ma tâche'),
+                    new OA\Property(property: 'description', type: 'string', nullable: true),
+                    new OA\Property(property: 'dueAt', type: 'string', format: 'date', nullable: true),
+                    new OA\Property(property: 'priority', type: 'string', enum: ['basse', 'moyenne', 'élevée'], nullable: true),
+                    new OA\Property(property: 'assignee', type: 'integer', nullable: true),
+                ],
+            ),
+        ),
+        parameters: [
+            new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(response: 201, description: 'Tâche créée'),
+            new OA\Response(response: 400, description: 'Requête invalide'),
+            new OA\Response(response: 403, description: 'Accès refusé'),
+            new OA\Response(response: 404, description: 'Projet introuvable'),
+        ],
+    )]
     public function create(
         int $id,
         Request $request,
@@ -297,6 +375,18 @@ class TaskController extends AbstractController
     }
 
     #[Route('/task/{id}', name: 'task_delete', requirements: ['id' => '\d+'], methods: ['DELETE'])]
+    #[OA\Delete(
+        path: '/task/{id}',
+        summary: 'Supprimer une tâche',
+        parameters: [
+            new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(response: 204, description: 'Tâche supprimée'),
+            new OA\Response(response: 403, description: 'Accès refusé'),
+            new OA\Response(response: 404, description: 'Tâche introuvable'),
+        ],
+    )]
     public function delete(
         int $id,
         TaskRepositoryInterface $taskRepository,
@@ -320,6 +410,20 @@ class TaskController extends AbstractController
     }
 
     #[Route('/task/{id}/tags/{tagId}', name: 'task_tag_add', requirements: ['id' => '\d+', 'tagId' => '\d+'], methods: ['POST'])]
+    #[OA\Post(
+        path: '/task/{id}/tags/{tagId}',
+        summary: 'Associer un tag à une tâche',
+        parameters: [
+            new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'tagId', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Tag associé'),
+            new OA\Response(response: 403, description: 'Accès refusé'),
+            new OA\Response(response: 404, description: 'Tâche ou tag introuvable'),
+            new OA\Response(response: 409, description: 'Tag hors projet ou déjà lié'),
+        ],
+    )]
     public function addTag(
         int $id,
         int $tagId,
@@ -370,6 +474,20 @@ class TaskController extends AbstractController
     }
 
     #[Route('/task/{id}/tags/{tagId}', name: 'task_tag_remove', requirements: ['id' => '\d+', 'tagId' => '\d+'], methods: ['DELETE'])]
+    #[OA\Delete(
+        path: '/task/{id}/tags/{tagId}',
+        summary: 'Retirer un tag d\'une tâche',
+        parameters: [
+            new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'tagId', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Tag retiré'),
+            new OA\Response(response: 403, description: 'Accès refusé'),
+            new OA\Response(response: 404, description: 'Tâche, tag ou liaison introuvable'),
+            new OA\Response(response: 409, description: 'Tag hors projet'),
+        ],
+    )]
     public function removeTag(
         int $id,
         int $tagId,
@@ -418,6 +536,44 @@ class TaskController extends AbstractController
     }
 
     #[Route('/project/{id}/tasks/search', name: 'task_search', requirements: ['id' => '\d+'], methods: ['POST'])]
+    #[OA\Post(
+        path: '/project/{id}/tasks/search',
+        summary: 'Rechercher / filtrer les tâches d\'un projet',
+        requestBody: new OA\RequestBody(
+            content: new OA\JsonContent(
+                properties: [
+                    new OA\Property(
+                        property: 'filters',
+                        properties: [
+                            new OA\Property(property: 'state', type: 'array', items: new OA\Items(type: 'string')),
+                            new OA\Property(property: 'priority', type: 'array', items: new OA\Items(type: 'string')),
+                            new OA\Property(property: 'dueBefore', type: 'string', format: 'date', nullable: true),
+                            new OA\Property(property: 'tags', type: 'array', items: new OA\Items(type: 'integer')),
+                            new OA\Property(property: 'assignee', type: 'integer', nullable: true),
+                        ],
+                        type: 'object',
+                    ),
+                    new OA\Property(
+                        property: 'sort',
+                        properties: [
+                            new OA\Property(property: 'field', type: 'string', example: 'dueAt'),
+                            new OA\Property(property: 'order', type: 'string', enum: ['asc', 'desc']),
+                        ],
+                        type: 'object',
+                    ),
+                ],
+            ),
+        ),
+        parameters: [
+            new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Liste de tâches filtrées'),
+            new OA\Response(response: 400, description: 'Requête invalide'),
+            new OA\Response(response: 403, description: 'Accès refusé'),
+            new OA\Response(response: 404, description: 'Projet introuvable'),
+        ],
+    )]
     public function search(
         int $id,
         Request $request,
