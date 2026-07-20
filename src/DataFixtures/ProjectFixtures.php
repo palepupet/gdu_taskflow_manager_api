@@ -27,8 +27,10 @@ class ProjectFixtures extends Fixture implements DependentFixtureInterface
                 'status' => ProjectStatus::IN_PROGRESS,
                 'ownerEmail' => 'user@taskflow.fr',
                 'memberEmails' => ['alice.dupont@taskflow.fr', 'bob.leroy@taskflow.fr'],
-                'startAt' => null,
-                'endAt' => '2026-02-28',
+                'startAt' => '2025-09-01',
+                'endAt' => '2026-06-30',
+                'updatedAt' => '2026-04-10T14:30:00',
+                'archivedAt' => null,
                 'isArchived' => false,
             ],
             [
@@ -39,7 +41,8 @@ class ProjectFixtures extends Fixture implements DependentFixtureInterface
                 'memberEmails' => ['claire.bernard@taskflow.fr'],
                 'startAt' => '2025-11-15',
                 'endAt' => null,
-                'updatedAt' => null,
+                'updatedAt' => '2026-03-20T09:15:00',
+                'archivedAt' => null,
                 'isArchived' => false,
             ],
             [
@@ -48,8 +51,10 @@ class ProjectFixtures extends Fixture implements DependentFixtureInterface
                 'status' => ProjectStatus::COMPLETED,
                 'ownerEmail' => 'bob.leroy@taskflow.fr',
                 'memberEmails' => ['david.petit@taskflow.fr', 'user@taskflow.fr'],
-                'startAt' => null,
+                'startAt' => '2025-06-01',
                 'endAt' => '2025-12-15',
+                'updatedAt' => '2025-12-15T16:00:00',
+                'archivedAt' => '2025-12-15T16:00:00',
                 'isArchived' => true,
             ],
             [
@@ -60,6 +65,8 @@ class ProjectFixtures extends Fixture implements DependentFixtureInterface
                 'memberEmails' => ['sophie.martin@taskflow.fr'],
                 'startAt' => '2025-10-01',
                 'endAt' => '2026-01-31',
+                'updatedAt' => '2026-01-31T11:45:00',
+                'archivedAt' => '2026-01-31T11:45:00',
                 'isArchived' => true,
             ],
             [
@@ -74,6 +81,8 @@ class ProjectFixtures extends Fixture implements DependentFixtureInterface
                 ],
                 'startAt' => '2026-01-10',
                 'endAt' => null,
+                'updatedAt' => '2026-04-05T10:00:00',
+                'archivedAt' => null,
                 'isArchived' => false,
             ],
             [
@@ -82,8 +91,10 @@ class ProjectFixtures extends Fixture implements DependentFixtureInterface
                 'status' => ProjectStatus::COMPLETED,
                 'ownerEmail' => 'david.petit@taskflow.fr',
                 'memberEmails' => ['claire.bernard@taskflow.fr'],
-                'startAt' => null,
+                'startAt' => '2025-08-01',
                 'endAt' => '2025-11-30',
+                'updatedAt' => '2025-11-30T17:30:00',
+                'archivedAt' => '2025-11-30T17:30:00',
                 'isArchived' => true,
             ],
             [
@@ -94,7 +105,8 @@ class ProjectFixtures extends Fixture implements DependentFixtureInterface
                 'memberEmails' => ['manager@taskflow.fr', 'david.petit@taskflow.fr'],
                 'startAt' => '2026-03-01',
                 'endAt' => null,
-                'updatedAt' => null,
+                'updatedAt' => '2026-04-15T08:20:00',
+                'archivedAt' => null,
                 'isArchived' => false,
             ],
             [
@@ -103,8 +115,10 @@ class ProjectFixtures extends Fixture implements DependentFixtureInterface
                 'status' => ProjectStatus::CANCELLED,
                 'ownerEmail' => 'user@taskflow.fr',
                 'memberEmails' => ['bob.leroy@taskflow.fr'],
-                'startAt' => null,
+                'startAt' => '2025-12-01',
                 'endAt' => '2026-04-30',
+                'updatedAt' => '2026-04-30T15:10:00',
+                'archivedAt' => '2026-04-30T15:10:00',
                 'isArchived' => true,
             ],
             [
@@ -119,6 +133,8 @@ class ProjectFixtures extends Fixture implements DependentFixtureInterface
                 ],
                 'startAt' => '2026-02-01',
                 'endAt' => null,
+                'updatedAt' => '2026-04-01T13:00:00',
+                'archivedAt' => null,
                 'isArchived' => false,
             ],
             [
@@ -127,8 +143,10 @@ class ProjectFixtures extends Fixture implements DependentFixtureInterface
                 'status' => ProjectStatus::COMPLETED,
                 'ownerEmail' => 'bob.leroy@taskflow.fr',
                 'memberEmails' => ['alice.dupont@taskflow.fr', 'user@taskflow.fr'],
-                'startAt' => null,
+                'startAt' => '2025-10-01',
                 'endAt' => '2026-01-15',
+                'updatedAt' => '2026-01-15T12:00:00',
+                'archivedAt' => '2026-01-15T12:00:00',
                 'isArchived' => true,
             ],
         ];
@@ -145,7 +163,8 @@ class ProjectFixtures extends Fixture implements DependentFixtureInterface
                 users: $users,
                 startAt: $data['startAt'],
                 endAt: $data['endAt'],
-                updatedAt: $data['updatedAt'] ?? null,
+                updatedAt: $data['updatedAt'],
+                archivedAt: $data['archivedAt'],
                 isArchived: $data['isArchived'],
             );
 
@@ -192,6 +211,8 @@ class ProjectFixtures extends Fixture implements DependentFixtureInterface
 
     /**
      * @SuppressWarnings("PHPMD.ExcessiveParameterList")
+     * @SuppressWarnings("PHPMD.NPathComplexity")
+     * @SuppressWarnings("PHPMD.ExcessiveMethodLength")
      *
      * @param array<string, User> $users
      * @param list<string>        $memberEmails
@@ -203,9 +224,10 @@ class ProjectFixtures extends Fixture implements DependentFixtureInterface
         User $owner,
         array $memberEmails,
         array $users,
-        ?string $startAt,
+        string $startAt,
         ?string $endAt,
         ?string $updatedAt,
+        ?string $archivedAt,
         bool $isArchived,
     ): Project {
         $project = new Project();
@@ -213,7 +235,7 @@ class ProjectFixtures extends Fixture implements DependentFixtureInterface
             ->setTitle($title)
             ->setDescription($description)
             ->setOwner($owner)
-            ->setStartAt(null !== $startAt ? new \DateTimeImmutable($startAt) : null)
+            ->setStartAt(new \DateTimeImmutable($startAt))
             ->setEndAt(null !== $endAt ? new \DateTimeImmutable($endAt) : null);
 
         if (null !== $updatedAt) {
@@ -221,6 +243,18 @@ class ProjectFixtures extends Fixture implements DependentFixtureInterface
         }
 
         $project->changeStatus($status);
+
+        if (null !== $archivedAt) {
+            $project->setArchivedAt(new \DateTimeImmutable($archivedAt));
+        }
+
+        if (ProjectStatus::COMPLETED === $status && null === $endAt) {
+            throw new \InvalidArgumentException(sprintf('Le projet terminé "%s" doit avoir une date de fin.', $title));
+        }
+
+        if ($isArchived && null === $archivedAt) {
+            throw new \InvalidArgumentException(sprintf('Le projet archivé "%s" doit avoir une date d\'archivage.', $title));
+        }
 
         if ($project->isArchived() !== $isArchived) {
             throw new \InvalidArgumentException(sprintf('Incohérence fixture "%s" : status=%s mais isArchived=%s', $title, $status->value, $isArchived ? 'true' : 'false'));

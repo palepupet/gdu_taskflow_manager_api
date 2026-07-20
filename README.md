@@ -109,12 +109,24 @@ Le fichier `.env.test` configure une base **SQLite en mémoire** et une passphra
 
 Après `doctrine:fixtures:load`, des comptes de test sont disponibles :
 
-| Email | Mot de passe | Rôle |
-|---|---|---|
-| `manager@taskflow.fr` | `TaskFlowManager123` | Manager |
-| `user@taskflow.fr` | `TaskFlowUser123` | User |
+| Email                        | Mot de passe         | Rôle           |
+|------------------------------|----------------------|----------------|
+| `manager@taskflow.fr`        | `TaskFlowManager123` | Manager        |
+| `sophie.martin@taskflow.fr`  | `TaskFlowManager123` | Manager        |
+| `user@taskflow.fr`           | `TaskFlowUser123`    | User           |
+| `alice.dupont@taskflow.fr`   | `TaskFlowUser123`    | User           |
+| `bob.leroy@taskflow.fr`      | `TaskFlowUser123`    | User           |
+| `claire.bernard@taskflow.fr` | `TaskFlowUser123`    | User           |
+| `david.petit@taskflow.fr`    | `TaskFlowUser123`    | User           |
+| `inactive.user@taskflow.fr`  | `TaskFlowUser123`    | User (inactif) |
 
-D'autres utilisateurs et projets de démonstration sont également créés.
+Jeu de démo chargé :
+
+- **10 projets** : statuts `en cours`, `terminé`, `annulé` (projets archivés inclus), avec `updatedAt` renseigné
+- **Tags** sur tous les projets : métier sur les actifs ; `cloturé` sur les terminés ; `en cours` / `fermé` sur les annulés
+- **11 tâches** : états `ouvert`, `en cours`, `terminé` ; priorités variées ; assignés ; échéances ; tags liés ; `updatedAt` renseigné
+
+Utile pour tester manuellement les listes, filtres (`POST /projects/search`, `POST /project/{id}/tasks/search`) et les tags.
 
 ---
 
