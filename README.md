@@ -201,6 +201,7 @@ Authorization: Bearer <jwt>
 | Méthode  | Route                   | Auth | Description                                    |
 |----------|-------------------------|------|------------------------------------------------|
 | `GET`    | `/projects`             | JWT  | Liste des projets accessibles (manager : tous) |
+| `POST`   | `/projects/search`      | JWT  | Rechercher / filtrer les projets accessibles   |
 | `GET`    | `/project/{id}`         | JWT  | Détail d'un projet (tâches, tags, membres…)    |
 | `POST`   | `/project`              | JWT  | Créer un projet (le créateur devient owner)    |
 | `PATCH`  | `/project/{id}`         | JWT  | Modifier un projet (owner ou manager)          |
@@ -208,6 +209,31 @@ Authorization: Bearer <jwt>
 | `DELETE` | `/project/{id}/members` | JWT  | Retirer des membres (owner ou manager)         |
 
 > Il n'existe pas de `DELETE /project/{id}`, l'archivage remplace la suppression.
+
+#### Corps JSON utiles (projets)
+
+**Recherche** (`POST /projects/search`), filtres et tri dans le body :
+
+```json
+{
+  "filters": {
+    "status": ["en cours", "terminé"],
+    "archived": false
+  },
+  "sort": {
+    "field": "createdAt",
+    "order": "desc"
+  }
+}
+```
+
+- Accessible en lecture pour le owner, un membre ou un manager (même règle que `GET /projects`). Un utilisateur ne voit jamais un projet dont il n'est pas membre (sauf manager).
+- Tous les champs sont optionnels. Sans filtre (`{ "filters": [] }` ou `{}` valide), retourne tous les projets accessibles.
+- `status` : listes de valeurs `en cours`, `terminé`, `annulé` (ou une seule chaîne, normalisée en liste).
+- `archived` : booléen strict (`true` ou `false`) ; filtre sur `isArchived`.
+- `sort.field` : `id`, `title`, `status`, `createdAt`, `startAt` ou `endAt` (défaut : `id`).
+- `sort.order` : `asc` ou `desc` accessibles(défaut : `desc`).
+- Réponse : tableau de projets (comme `GET /projects`).
 
 ### Tâches
 

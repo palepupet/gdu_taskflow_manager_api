@@ -8,6 +8,7 @@ use App\Controller\Trait\CurrentUserTrait;
 use App\Dto\Project\CreateProjectRequest;
 use App\Dto\Project\ManageProjectMembersRequest;
 use App\Dto\Project\ProjectResponse;
+use App\Dto\Project\SearchProjectRequest;
 use App\Dto\Project\UpdateProjectRequest;
 use App\Entity\Project;
 use App\Entity\User;
@@ -312,5 +313,33 @@ class ProjectController extends AbstractController
         $entityManager->flush();
 
         return new JsonResponse(ProjectResponse::fromProject($project)->toArray());
+    }
+
+    #[Route('/projects/search', name: 'project_search', methods: ['POST'])]
+    public function search(
+        Request $request,
+        ProjectRepositoryInterface $projectRepository,
+    ): JsonResponse {
+        $user = $this->getCurrentUser();
+
+        $data = $this->requestPayloadParser->decode($request);
+        if ($data instanceof JsonResponse) {
+            return $data;
+        }
+
+        $dto = $this->requestPayloadParser->validate(SearchProjectRequest::fromArray($data));
+        if ($dto instanceof JsonResponse) {
+            return $dto;
+        }
+
+        /** @var SearchProjectRequest $dto */
+        $projects = $projectRepository->searchByUser($user, $dto);
+
+        $payload = array_map(
+            static fn (Project $project): array => ProjectResponse::fromProject($project)->toArray(),
+            $projects,
+        );
+
+        return new JsonResponse($payload);
     }
 }

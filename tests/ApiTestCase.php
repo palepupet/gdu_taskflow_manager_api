@@ -17,6 +17,7 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 /**
  * @SuppressWarnings("PHPMD.TooManyMethods")
+ * @SuppressWarnings("PHPMD.ExcessiveClassComplexity")
  */
 abstract class ApiTestCase extends WebTestCase
 {
@@ -443,6 +444,14 @@ abstract class ApiTestCase extends WebTestCase
     protected function searchProjectTasks(int $projectId, ?array $payload = null, ?string $token = null): void
     {
         $this->requestJson('POST', '/project/'.$projectId.'/tasks/search', $payload ?? [], $token);
+    }
+
+    /**
+     * @param array<string, mixed>|null $payload
+     */
+    protected function searchProjects(?array $payload = null, ?string $token = null): void
+    {
+        $this->requestJson('POST', '/projects/search', $payload ?? [], $token);
     }
 
     private function resetDatabase(): void
