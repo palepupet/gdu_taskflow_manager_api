@@ -130,6 +130,15 @@ Utile pour tester manuellement les listes, filtres (`POST /projects/search`, `PO
 
 ---
 
+## Documentation API (Swagger)
+
+- OpenAPI interactive : `/api/doc`
+- OpenAPI JSON : `/api/doc.json`
+
+Accès public (pas de JWT requis pour ouvrir la doc). Pour tester les routes protégées depuis l'UI : se connecter via `POST /auth/login`, puis coller le token dans Authorize (Bearer).
+
+---
+
 ## Qualité du code
 
 | Commande                | Description                                                                                    |

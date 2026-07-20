@@ -15,6 +15,7 @@ use App\Http\RequestPayloadParser;
 use App\Repository\ProjectRepositoryInterface;
 use App\Repository\TagRepositoryInterface;
 use Doctrine\ORM\EntityManagerInterface;
+use OpenApi\Attributes as OA;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -24,6 +25,7 @@ use Symfony\Component\Routing\Attribute\Route;
 /**
  * @SuppressWarnings("PHPMD.CouplingBetweenObjects")
  */
+#[OA\Tag(name: 'Tags')]
 class TagController extends AbstractController
 {
     use CurrentUserTrait;
@@ -36,7 +38,30 @@ class TagController extends AbstractController
     /**
      * @SuppressWarnings("PHPMD.ExcessiveMethodLength")
      */
-    #[Route('/project/{id}/tags', name:'tag_create', requirements: ['id' => '\d+'], methods: ['POST'])]
+    #[Route('/project/{id}/tags', name: 'tag_create', requirements: ['id' => '\d+'], methods: ['POST'])]
+    #[OA\Post(
+        path: '/project/{id}/tags',
+        summary: 'Créer un tag sur un projet',
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['label'],
+                properties: [
+                    new OA\Property(property: 'label', type: 'string', example: 'urgent'),
+                ],
+            ),
+        ),
+        parameters: [
+            new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(response: 201, description: 'Tag créé'),
+            new OA\Response(response: 400, description: 'Requête invalide'),
+            new OA\Response(response: 403, description: 'Accès refusé'),
+            new OA\Response(response: 404, description: 'Projet introuvable'),
+            new OA\Response(response: 409, description: 'Libellé déjà utilisé'),
+        ],
+    )]
     public function create(
         int $id,
         Request $request,
@@ -89,7 +114,19 @@ class TagController extends AbstractController
         );
     }
 
-    #[Route('/project/{id}/tags', name:'tag_list', requirements: ['id' => '\d+'], methods: ['GET'])]
+    #[Route('/project/{id}/tags', name: 'tag_list', requirements: ['id' => '\d+'], methods: ['GET'])]
+    #[OA\Get(
+        path: '/project/{id}/tags',
+        summary: 'Lister les tags d\'un projet',
+        parameters: [
+            new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Liste des tags'),
+            new OA\Response(response: 403, description: 'Accès refusé'),
+            new OA\Response(response: 404, description: 'Projet introuvable'),
+        ],
+    )]
     public function list(
         int $id,
         ProjectRepositoryInterface $projectRepository,
@@ -120,6 +157,29 @@ class TagController extends AbstractController
      * @SuppressWarnings("PHPMD.NPathComplexity")
      */
     #[Route('/tag/{id}', name: 'tag_update', requirements: ['id' => '\d+'], methods: ['PATCH'])]
+    #[OA\Patch(
+        path: '/tag/{id}',
+        summary: 'Renommer un tag',
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['label'],
+                properties: [
+                    new OA\Property(property: 'label', type: 'string', example: 'prioritaire'),
+                ],
+            ),
+        ),
+        parameters: [
+            new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Tag mis à jour'),
+            new OA\Response(response: 400, description: 'Requête invalide'),
+            new OA\Response(response: 403, description: 'Accès refusé'),
+            new OA\Response(response: 404, description: 'Tag introuvable'),
+            new OA\Response(response: 409, description: 'Libellé déjà utilisé'),
+        ],
+    )]
     public function update(
         int $id,
         Request $request,
@@ -184,6 +244,18 @@ class TagController extends AbstractController
     }
 
     #[Route('/tag/{id}', name: 'tag_delete', requirements: ['id' => '\d+'], methods: ['DELETE'])]
+    #[OA\Delete(
+        path: '/tag/{id}',
+        summary: 'Supprimer un tag',
+        parameters: [
+            new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(response: 204, description: 'Tag supprimé'),
+            new OA\Response(response: 403, description: 'Accès refusé'),
+            new OA\Response(response: 404, description: 'Tag introuvable'),
+        ],
+    )]
     public function delete(
         int $id,
         TagRepositoryInterface $tagRepository,

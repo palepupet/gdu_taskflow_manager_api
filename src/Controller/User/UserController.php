@@ -15,6 +15,7 @@ use App\Http\ApiErrorResponse;
 use App\Http\RequestPayloadParser;
 use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use OpenApi\Attributes as OA;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -26,6 +27,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 /**
  * @SuppressWarnings("PHPMD.CouplingBetweenObjects")
  */
+#[OA\Tag(name: 'Users')]
 class UserController extends AbstractController
 {
     use CurrentUserTrait;
@@ -35,7 +37,15 @@ class UserController extends AbstractController
     ) {
     }
 
-    #[Route('/me', name:'me_show', methods: ['GET'])]
+    #[Route('/me', name: 'me_show', methods: ['GET'])]
+    #[OA\Get(
+        path: '/me',
+        summary: 'Profil de l\'utilisateur connecté',
+        responses: [
+            new OA\Response(response: 200, description: 'Profil utilisateur'),
+            new OA\Response(response: 401, description: 'Non authentifié'),
+        ],
+    )]
     public function show(): JsonResponse
     {
         $user = $this->getCurrentUser();
@@ -43,7 +53,24 @@ class UserController extends AbstractController
         return new JsonResponse(UserProfileResponse::fromUser($user)->toArray());
     }
 
-    #[Route('/me', name:'me_update', methods: ['PATCH'])]
+    #[Route('/me', name: 'me_update', methods: ['PATCH'])]
+    #[OA\Patch(
+        path: '/me',
+        summary: 'Mettre à jour son profil',
+        requestBody: new OA\RequestBody(
+            content: new OA\JsonContent(
+                properties: [
+                    new OA\Property(property: 'firstName', type: 'string', nullable: true),
+                    new OA\Property(property: 'lastName', type: 'string', nullable: true),
+                ],
+            ),
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Profil mis à jour'),
+            new OA\Response(response: 400, description: 'Requête invalide'),
+            new OA\Response(response: 401, description: 'Non authentifié'),
+        ],
+    )]
     public function update(
         Request $request,
         EntityManagerInterface $entityManager,
@@ -83,7 +110,32 @@ class UserController extends AbstractController
      * @SuppressWarnings("PHPMD.NPathComplexity")
      */
     #[IsGranted('ROLE_MANAGER')]
-    #[Route('/user/{id}', name:'user_update', requirements: ['id' => '\d+'], methods: ['PATCH'])]
+    #[Route('/user/{id}', name: 'user_update', requirements: ['id' => '\d+'], methods: ['PATCH'])]
+    #[OA\Patch(
+        path: '/user/{id}',
+        summary: 'Modifier un utilisateur (manager)',
+        requestBody: new OA\RequestBody(
+            content: new OA\JsonContent(
+                properties: [
+                    new OA\Property(property: 'firstName', type: 'string', nullable: true),
+                    new OA\Property(property: 'lastName', type: 'string', nullable: true),
+                    new OA\Property(property: 'email', type: 'string', nullable: true),
+                    new OA\Property(property: 'isActive', type: 'boolean', nullable: true),
+                    new OA\Property(property: 'roles', type: 'array', items: new OA\Items(type: 'string'), nullable: true),
+                ],
+            ),
+        ),
+        parameters: [
+            new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Utilisateur mis à jour'),
+            new OA\Response(response: 400, description: 'Requête invalide'),
+            new OA\Response(response: 403, description: 'Accès refusé'),
+            new OA\Response(response: 404, description: 'Utilisateur introuvable'),
+            new OA\Response(response: 409, description: 'Email déjà utilisé'),
+        ],
+    )]
     public function updateById(
         int $id,
         Request $request,
@@ -138,7 +190,30 @@ class UserController extends AbstractController
     }
 
     #[IsGranted('ROLE_MANAGER')]
-    #[Route('/user', name:'user_create', methods: ['POST'])]
+    #[Route('/user', name: 'user_create', methods: ['POST'])]
+    #[OA\Post(
+        path: '/user',
+        summary: 'Créer un utilisateur (manager)',
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['firstName', 'lastName', 'email', 'password'],
+                properties: [
+                    new OA\Property(property: 'firstName', type: 'string'),
+                    new OA\Property(property: 'lastName', type: 'string'),
+                    new OA\Property(property: 'email', type: 'string'),
+                    new OA\Property(property: 'password', type: 'string'),
+                    new OA\Property(property: 'roles', type: 'array', items: new OA\Items(type: 'string'), nullable: true),
+                ],
+            ),
+        ),
+        responses: [
+            new OA\Response(response: 201, description: 'Utilisateur créé'),
+            new OA\Response(response: 400, description: 'Requête invalide'),
+            new OA\Response(response: 403, description: 'Accès refusé'),
+            new OA\Response(response: 409, description: 'Email déjà utilisé'),
+        ],
+    )]
     public function create(
         Request $request,
         EntityManagerInterface $entityManager,
@@ -184,7 +259,15 @@ class UserController extends AbstractController
     }
 
     #[IsGranted('ROLE_MANAGER')]
-    #[Route('/users', name:'users_list', methods: ['GET'])]
+    #[Route('/users', name: 'users_list', methods: ['GET'])]
+    #[OA\Get(
+        path: '/users',
+        summary: 'Lister tous les utilisateurs (manager)',
+        responses: [
+            new OA\Response(response: 200, description: 'Liste des utilisateurs'),
+            new OA\Response(response: 403, description: 'Accès refusé'),
+        ],
+    )]
     public function list(UserRepository $userRepository): JsonResponse
     {
         $users = $userRepository->findAll();
@@ -199,6 +282,18 @@ class UserController extends AbstractController
 
     #[IsGranted('ROLE_MANAGER')]
     #[Route('/user/{id}', name: 'user_detail', requirements: ['id' => '\d+'], methods: ['GET'])]
+    #[OA\Get(
+        path: '/user/{id}',
+        summary: 'Détail d\'un utilisateur (manager)',
+        parameters: [
+            new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Détail utilisateur'),
+            new OA\Response(response: 403, description: 'Accès refusé'),
+            new OA\Response(response: 404, description: 'Utilisateur introuvable'),
+        ],
+    )]
     public function detail(int $id, UserRepository $userRepository): JsonResponse
     {
         $user = $this->findUserOrError($id, $userRepository);
@@ -211,6 +306,18 @@ class UserController extends AbstractController
 
     #[IsGranted('ROLE_MANAGER')]
     #[Route('/user/{id}', name: 'user_delete', requirements: ['id' => '\d+'], methods: ['DELETE'])]
+    #[OA\Delete(
+        path: '/user/{id}',
+        summary: 'Supprimer un utilisateur (manager)',
+        parameters: [
+            new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(response: 204, description: 'Utilisateur supprimé'),
+            new OA\Response(response: 403, description: 'Accès refusé'),
+            new OA\Response(response: 404, description: 'Utilisateur introuvable'),
+        ],
+    )]
     public function delete(
         int $id,
         UserRepository $userRepository,
