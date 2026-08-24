@@ -72,4 +72,5 @@
 /.env.local
 /.env.local.php
 /.env.*.local
+/.env.docker
 /public/bundles/
