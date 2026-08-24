@@ -10,6 +10,8 @@ API REST pour la société fictive **TaskFlow**, application de gestion de proje
 |------------------|-----------------------------------------|
 | Langage          | **PHP** ≥ 8.2                           |
 | Framework        | **Symfony** 7.2                         |
+| Base de données  | **MySQL** 8                             |
+| Conteneurisation | **Docker** + Docker Compose             |
 | Authentification | **Lexik JWT Authentication Bundle** 3.x |
 | Tests            | **PHPUnit** 11                          |
 
@@ -17,11 +19,33 @@ API REST pour la société fictive **TaskFlow**, application de gestion de proje
 
 ## Prérequis
 
-- **PHP** ≥ 8.2 avec extensions
+### Avec Docker
+
+- **Docker** Engine
+- **Docker Compose** (plugin `docker compose`)
+
+### Sans Docker (installation locale)
+
+- **PHP** ≥ 8.2 avec extensions (`pdo_mysql`, `zip`, …)
 - **Composer** 2.x
+- **MySQL** 8
+
 ---
 
-## Installation
+## Fichiers d'environnement
+
+| Fichier       | Versionné ? | Rôle                                                       |
+|---------------|-------------|------------------------------------------------------------|
+| `.env`        | Oui         | Modèle avec les variables (valeurs vides). Sert d'exemple. |
+| `.env.local`  | Non         | Secrets pour une exécution **locale** (PHP hors Docker).   |
+| `.env.docker` | Non         | Secrets pour **Docker Compose** (`--env-file`).            |
+| `.env.test`   | Oui         | Config des tests (SQLite en mémoire).                      |
+
+Les fichiers `.env.local` et `.env.docker` sont gitignorés : ne jamais y committer de secrets.
+
+---
+
+## Installation avec Docker
 
 ### 1) Cloner le dépôt
 
@@ -30,51 +54,151 @@ git clone https://github.com/palepupet/gdu_taskflow_manager_api.git
 cd gdu_taskflow_manager_api
 ```
 
-### 2) Installer les dépendances
+### 2) Créer le fichier d'environnement Docker
 
 ```bash
+cp .env .env.docker
+```
+
+Éditer `.env.docker` et renseigner au minimum :
+
+- `APP_SECRET` (chaîne aléatoire, ex. `openssl rand -hex 32`)
+- `MYSQL_DATABASE`, `MYSQL_USER`, `MYSQL_PASSWORD`, `MYSQL_ROOT_PASSWORD`
+- `DATABASE_URL`, **important** : le host doit être le nom du service Compose `database`, pas `127.0.0.1`
+
+Exemple :
+
+```dotenv
+APP_ENV=dev
+APP_SECRET=change_me_to_a_long_random_string
+MYSQL_DATABASE=taskflow_manager_api
+MYSQL_USER=app
+MYSQL_PASSWORD=ChangeMe
+MYSQL_ROOT_PASSWORD=ChangeMe
+DATABASE_URL="mysql://app:ChangeMe@database:3306/taskflow_manager_api?serverVersion=8.0&charset=utf8mb4"
+JWT_PASSPHRASE=
+CORS_ALLOW_ORIGIN='^https?://(localhost|127\.0\.0\.1)(:[0-9]+)?$'
+```
+
+### 3) Build et démarrage
+
+```bash
+docker compose --env-file .env.docker up --build
+```
+
+En arrière-plan :
+
+```bash
+docker compose --env-file .env.docker up --build -d
+```
+
+Services démarrés :
+
+| Service    | Rôle             | Accès                                          |
+|------------|------------------|------------------------------------------------|
+| `api`      | Symfony + Apache | [http://localhost:8000](http://localhost:8000) |
+| `database` | MySQL 8          | `127.0.0.1:3307` depuis l'hôte                 |
+
+Attendre quelques secondes que MySQL soit prêt.
+
+### 4) Migrations
+
+```bash
+docker compose --env-file .env.docker exec api php bin/console doctrine:migrations:migrate --no-interaction
+```
+
+### 5) Clés JWT
+
+```bash
+docker compose --env-file .env.docker exec api php bin/console lexik:jwt:generate-keypair --overwrite
+```
+
+Les clés sont créées dans `config/jwt/` (`private.pem`, `public.pem`, non versionnées).
+
+### 6) Fixtures (optionnel)
+
+```bash
+docker compose --env-file .env.docker exec api php bin/console doctrine:fixtures:load --no-interaction
+```
+
+### 7) Vérifier
+
+- Documentation OpenAPI : [http://localhost:8000/api/doc](http://localhost:8000/api/doc)
+- Conteneurs : `docker compose --env-file .env.docker ps`
+- Logs API : `docker compose --env-file .env.docker logs -f api`
+
+### Commandes utiles (Docker)
+
+```bash
+# Console Symfony dans le conteneur
+docker compose --env-file .env.docker exec api php bin/console list
+
+# Shell dans le conteneur API
+docker compose --env-file .env.docker exec api bash
+
+# Client MySQL dans le conteneur BDD
+docker compose --env-file .env.docker exec database mysql -u app -pChangeMe taskflow_manager_api
+
+# Arrêt (conserve les données MySQL)
+docker compose --env-file .env.docker down
+
+# Arrêt + suppression du volume BDD
+docker compose --env-file .env.docker down -v
+```
+
+Toujours préfixer avec `--env-file .env.docker` pour que Compose charge vos secrets.
+
+### Accès à la base MySQL depuis l'hôte
+
+Le port hôte est **3307** (voir `compose.override.yaml`), pour éviter un conflit avec un MySQL local sur 3306.
+
+| Paramètre       | Valeur                           |
+|-----------------|----------------------------------|
+| Host            | `127.0.0.1`                      |
+| Port            | `3307`                           |
+| User / Password | ceux définis dans `.env.docker`  |
+| Database        | celle définie dans `.env.docker` |
+
+Le navigateur ne peut pas ouvrir `http://127.0.0.1:3307` (protocole MySQL, pas HTTP). Utiliser un client SQL (DBeaver, etc.) ou la CLI ci-dessus.
+
+---
+
+## Installation locale (sans Docker)
+
+### 1) Cloner et dépendances
+
+```bash
+git clone https://github.com/palepupet/gdu_taskflow_manager_api.git
+cd gdu_taskflow_manager_api
 composer install
 ```
 
-### 3) Générer les clés JWT
+### 2) Clés JWT
 
 ```bash
 php bin/console lexik:jwt:generate-keypair
 ```
 
-Les clés sont créées dans `config/jwt` (`private.pem`, `public.pem`).
-
-### 4) Configurer l'environnement
+### 3) Environnement
 
 ```bash
 cp .env .env.local
 ```
 
-Éditer `.env.local` et renseigner au minimum `APP_SECRET` et `DATABASE_URL`.
+Éditer `.env.local` : `APP_SECRET`, `DATABASE_URL` (host `127.0.0.1` vers votre MySQL local).
 
-### 5) Créer la BDD
+### 4) Migrations et fixtures
 
 ```bash
 php bin/console doctrine:migrations:migrate --no-interaction
-```
-
-### 6) Charger les fixtures (Optionnel)
-
-```bash
 php bin/console doctrine:fixtures:load --no-interaction
 ```
 
-### 7) Lancer le serveur
-
-Avec le CLI Symfony :
+### 5) Lancer le serveur
 
 ```bash
 symfony server:start
-```
-
-Ou avec le serveur PHP intégré :
-
-```bash
+# ou
 php -S localhost:8000 -t public
 ```
 
@@ -84,19 +208,32 @@ php -S localhost:8000 -t public
 
 ### Variables d'environnement
 
-| Variable         | Description                                    |
-|------------------|------------------------------------------------|
-| `APP_ENV`        | Environnement (`dev`, `test`, `local`, `prod`) |
-| `APP_SECRET`     | Secret Symfony (à définir dans `.env.local`)   |
-| `DATABASE_URL`   | URL de connexion Doctrine                      |
-| `JWT_SECRET_KEY` | Path vers la clé privée JWT                    |
-| `JWT_PUBLIC_KEY` | Path vers la clé publique JWT                  |
-| `JWT_PASSPHRASE` | Passphrase de la clé privée (si applicable)    |
+| Variable              | Description                                                 |
+|-----------------------|-------------------------------------------------------------|
+| `APP_ENV`             | Environnement (`dev`, `test`, `prod`)                       |
+| `APP_SECRET`          | Secret Symfony (obligatoire, non vide)                      |
+| `MYSQL_DATABASE`      | Nom de la base (Docker Compose)                             |
+| `MYSQL_USER`          | Utilisateur MySQL (Docker Compose)                          |
+| `MYSQL_PASSWORD`      | Mot de passe MySQL (Docker Compose)                         |
+| `MYSQL_ROOT_PASSWORD` | Mot de passe root MySQL (Docker Compose)                    |
+| `DATABASE_URL`        | URL Doctrine (`@database` en Docker, `@127.0.0.1` en local) |
+| `JWT_SECRET_KEY`      | Chemin de la clé privée JWT                                 |
+| `JWT_PUBLIC_KEY`      | Chemin de la clé publique JWT                               |
+| `JWT_PASSPHRASE`      | Passphrase de la clé privée (vide si aucune)                |
+| `CORS_ALLOW_ORIGIN`   | Regex des origines CORS autorisées                          |
 
-### Exemple `DATABASE_URL` (PostgreSQL)
+### Exemple `DATABASE_URL` (MySQL)
+
+Docker :
 
 ```dotenv
-DATABASE_URL="postgresql://app:!ChangeMe!@127.0.0.1:5432/app?serverVersion=16&charset=utf8"
+DATABASE_URL="mysql://app:ChangeMe@database:3306/taskflow_manager_api?serverVersion=8.0&charset=utf8mb4"
+```
+
+Local :
+
+```dotenv
+DATABASE_URL="mysql://app:ChangeMe@127.0.0.1:3306/taskflow_manager_api?serverVersion=8.0&charset=utf8mb4"
 ```
 
 ### Environnement de test

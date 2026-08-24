@@ -1,0 +1,7 @@
+vendor
+var/cache
+var/log
+.git
+.idea
+.env.local
+.env.docker
