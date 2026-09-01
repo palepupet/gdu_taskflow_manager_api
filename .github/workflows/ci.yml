@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Setup php
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, xml, ctype, iconv, pdo_sqlite, zip
+          coverage: none
+          tools: composer:v2
+          cache: composer
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Generate JWT keypair for CI
+        run: php bin/console lexik:jwt:generate-keypair --overwrite --no-interaction
+        env:
+          APP_ENV: test
+
+      - name: Quality check
+        run: composer check
+        env:
+          APP_ENV: test
+
+      - name: Build Docker image
+        run: docker build .
