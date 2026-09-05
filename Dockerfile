@@ -14,3 +14,6 @@ COPY . .
 RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer \
     && composer install --optimize-autoloader \
     && chown -R www-data:www-data var
+
+RUN mkdir -p config/jwt \
+    && php bin/console lexik:jwt:generate-keypair --overwrite --no-interaction
